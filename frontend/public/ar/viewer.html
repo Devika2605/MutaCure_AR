@@ -7,25 +7,68 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/molstar@3.45.0/build/viewer/molstar.css"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; background: #080f09; overflow: hidden; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
   #app { width: 100%; height: 100%; }
   #status {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
     color: #6fcf7a; font-family: monospace; font-size: 13px; text-align: center;
+    pointer-events: none;
   }
-  .dot { animation: blink 1s step-start infinite; display: inline-block; }
-  @keyframes blink { 50% { opacity: 0; } }
+  #legend {
+    position: absolute; bottom: 12px; left: 12px;
+    background: rgba(13,26,15,0.85);
+    border: 1px solid rgba(74,163,84,0.25);
+    border-radius: 8px; padding: 10px 14px;
+    font-family: monospace; font-size: 11px;
+    color: rgba(232,240,232,0.8);
+    pointer-events: none;
+  }
+  #legend div { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  #legend div:last-child { margin-bottom: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  #mut-info {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(224,92,92,0.12);
+    border: 1px solid rgba(224,92,92,0.3);
+    border-radius: 8px; padding: 8px 12px;
+    font-family: monospace; font-size: 11px;
+    color: #e8a0a0; max-width: 260px; line-height: 1.5;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
-<div id="status">Loading structure<span class="dot">...</span></div>
+<div id="status">Loading structure<span style="animation:blink 1s step-start infinite;display:inline-block">...</span></div>
+
+<div id="mut-info" style="display:none"></div>
+
+<div id="legend">
+  <div><span class="dot" style="background:#4caf50"></span>Wild-type backbone</div>
+  <div><span class="dot" style="background:#e05c5c"></span>Mutation site</div>
+  <div><span class="dot" style="background:#5b9bd5"></span>Binding region</div>
+</div>
+
+<style>@keyframes blink { 50%{opacity:0} }</style>
 <script src="https://cdn.jsdelivr.net/npm/molstar@3.45.0/build/viewer/molstar.js"></script>
 <script>
 window.addEventListener("load", async function() {
   var params = new URLSearchParams(window.location.search);
   var pdbUrl = params.get("pdb");
-  if (!pdbUrl) { document.getElementById("status").textContent = "No PDB URL provided."; return; }
+  var mutPos = parseInt(params.get("mut") || "0");   // 1-based residue number
+  var mutInfo = params.get("info") || "";
+
+  if (!pdbUrl) {
+    document.getElementById("status").textContent = "No PDB URL provided.";
+    return;
+  }
+
+  if (mutInfo) {
+    var infoEl = document.getElementById("mut-info");
+    infoEl.textContent = "Mutation: " + decodeURIComponent(mutInfo);
+    infoEl.style.display = "block";
+  }
+
   try {
     var viewer = await molstar.Viewer.create("app", {
       layoutIsExpanded: false,
@@ -38,10 +81,28 @@ window.addEventListener("load", async function() {
       viewportShowSelectionMode: false,
       viewportShowAnimation: false,
     });
+
     await viewer.loadStructureFromUrl(pdbUrl, "pdb", false);
     document.getElementById("status").style.display = "none";
+
+    // Highlight mutation residue after a short delay for structure to render
+    if (mutPos > 0) {
+      setTimeout(function() {
+        try {
+          var PluginCommands = molstar.PluginCommands;
+          var Script = molstar.Script;
+          viewer.plugin.managers.structure.focus.setFromExpression(
+            Script.MolScript(`(sel.atom.res (= atom.auth_seq_id ${mutPos}))`)
+          );
+        } catch(e) {
+          console.log("Highlight skipped:", e.message);
+        }
+      }, 1500);
+    }
+
   } catch(err) {
     document.getElementById("status").textContent = "Error: " + err.message;
+    console.error(err);
   }
 });
 </script>
