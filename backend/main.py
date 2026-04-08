@@ -1,17 +1,13 @@
 """
 main.py — FastAPI app entry point.
-Frozen after Day 1 setup. Edit only with both teammates present.
+Merged version (Day 1 sync complete)
 """
 
 import os
 import sys
 import logging
 
-# ---------------------------------------------------------------------------
-# Ensure the backend/ directory is on sys.path.
-# Required on Windows when uvicorn spawns a subprocess (the CWD is not
-# automatically added to sys.path in that context).
-# ---------------------------------------------------------------------------
+# Ensure backend path
 sys.path.insert(0, os.path.dirname(__file__))
 
 from fastapi import FastAPI
@@ -33,39 +29,40 @@ app = FastAPI(
     debug=settings.debug,
 )
 
-# CORS — allows the Next.js frontend and AR page to call the API
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins if settings.cors_origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ---------------------------------------------------------------------------
-# Static files — PDB files served at /files/<filename>.pdb
+# Static files (for PDB)
 # ---------------------------------------------------------------------------
 
 os.makedirs(settings.pdb_output_dir, exist_ok=True)
 app.mount("/files", StaticFiles(directory=settings.pdb_output_dir), name="files")
 
 # ---------------------------------------------------------------------------
-# Routers — imported AFTER app is created to avoid NameError on Windows
-# (uvicorn's subprocess spawner re-executes this module from scratch)
+# Routers
 # ---------------------------------------------------------------------------
 
-from protein.routes import router as protein_router  # noqa: E402
+from protein.routes import router as protein_router
+from mutation.routes import router as mutation_router
+
 app.include_router(protein_router)
-
-# Person 1 uncomments both lines below on Day 1 sync:
-# from mutation.routes import router as mutation_router
-# app.include_router(mutation_router)
-
+app.include_router(mutation_router, prefix="/api")
 
 # ---------------------------------------------------------------------------
-# Root health check
+# Root
 # ---------------------------------------------------------------------------
 
 @app.get("/", tags=["health"])
 async def root():
-    return {"status": "ok", "project": "MutaCure AR"}
+    return {
+        "status": "ok",
+        "project": "MutaCure AR",
+        "message": "API running 🚀"
+    }
