@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MutaCure AR — Protein Viewer</title>
+
+  <!-- A-Frame & AR.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <!-- Three.js for custom protein geometry -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d1a0f;
+      font-family: 'DM Mono', 'Fira Code', monospace;
+      color: #e8f0e8;
+      overflow: hidden;
+    }
+
+    /* ── Splash / instructions overlay ── */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: #0d1a0f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      gap: 32px;
+      transition: opacity 0.5s ease;
+    }
+
+    #splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .splash-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .splash-logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(74, 163, 84, 0.2);
+      border: 1px solid rgba(74, 163, 84, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .splash-logo-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: #e8f0e8;
+    }
+
+    .splash-logo-text span { color: #6fcf7a; }
+
+    .splash-card {
+      background: #111d13;
+      border: 1px solid rgba(74, 163, 84, 0.2);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .splash-title {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #e8f0e8;
+      margin-bottom: 8px;
+    }
+
+    .splash-sub {
+      font-size: 12px;
+      color: rgba(232, 240, 232, 0.45);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(74, 163, 84, 0.2);
+      border: 1px solid rgba(74, 163, 84, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #6fcf7a;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-text {
+      font-size: 12px;
+      color: rgba(232, 240, 232, 0.65);
+      line-height: 1.5;
+    }
+
+    .splash-btn {
+      width: 100%;
+      padding: 14px;
+      background: #2d6a31;
+      border: none;
+      border-radius: 10px;
+      color: #e8f0e8;
+      font-size: 15px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .splash-btn:hover { background: #357a3a; }
+
+    /* ── AR HUD ── */
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    }
+
+    #hud.active { display: block; }
+
+    /* Top bar */
+    #hud-top {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(13,26,15,0.85) 0%, transparent 100%);
+    }
+
+    .hud-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hud-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6fcf7a;
+      box-shadow: 0 0 8px #6fcf7a;
+      animation: hudPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes hudPulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px #6fcf7a; }
+      50% { opacity: 0.5; box-shadow: 0 0 4px #6fcf7a; }
+    }
+
+    .hud-title {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #e8f0e8;
+    }
+
+    .hud-status {
+      font-size: 11px;
+      color: rgba(232, 240, 232, 0.5);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* Bottom info panel */
+    #hud-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 20px;
+      background: linear-gradient(to top, rgba(13,26,15,0.9) 0%, transparent 100%);
+    }
+
+    .hud-info-card {
+      background: rgba(17, 29, 19, 0.88);
+      border: 1px solid rgba(74, 163, 84, 0.25);
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .hud-field { display: flex; flex-direction: column; gap: 4px; }
+
+    .hud-field-label {
+      font-size: 10px;
+      color: rgba(232, 240, 232, 0.35);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .hud-field-value {
+      font-size: 13px;
+      color: #e8f0e8;
+      font-weight: 500;
+    }
+
+    .hud-field-value.green { color: #6fcf7a; }
+
+    .hud-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .hud-btn {
+      flex: 1;
+      padding: 10px;
+      background: rgba(74, 163, 84, 0.12);
+      border: 1px solid rgba(74, 163, 84, 0.25);
+      border-radius: 8px;
+      color: #6fcf7a;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .hud-btn:hover {
+      background: rgba(74, 163, 84, 0.2);
+    }
+
+    .hud-btn-back {
+      background: rgba(232, 240, 232, 0.06);
+      border-color: rgba(232, 240, 232, 0.12);
+      color: rgba(232, 240, 232, 0.6);
+    }
+
+    /* Scan target indicator */
+    #scan-hint {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      transition: opacity 0.4s;
+    }
+
+    #scan-hint.hidden { opacity: 0; }
+
+    .scan-reticle {
+      width: 180px;
+      height: 180px;
+      position: relative;
+    }
+
+    .scan-corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: #6fcf7a;
+      border-style: solid;
+      animation: scanPulse 1.5s ease-in-out infinite;
+    }
+    .scan-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    .scan-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+    .scan-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .scan-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+    @keyframes scanPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .scan-text {
+      font-size: 12px;
+      color: rgba(232, 240, 232, 0.6);
+      font-family: 'DM Mono', monospace;
+      background: rgba(13,26,15,0.75);
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(74, 163, 84, 0.2);
+    }
+
+    /* A-Frame canvas */
+    a-scene {
+      display: none;
+    }
+
+    a-scene.active {
+      display: block;
+    }
+
+    /* Back button (when in AR mode) */
+    #back-btn {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 200;
+      display: none;
+      padding: 8px 14px;
+      background: rgba(17,29,19,0.88);
+      border: 1px solid rgba(74, 163, 84, 0.25);
+      border-radius: 8px;
+      color: #6fcf7a;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      cursor: pointer;
+      pointer-events: auto;
+      text-decoration: none;
+    }
+
+    #back-btn.active { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Splash screen -->
+<div id="splash">
+  <div class="splash-logo">
+    <div class="splash-logo-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6fcf7a" stroke-width="1.5">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <span class="splash-logo-text">MutaCure <span>AR</span></span>
+  </div>
+
+  <div class="splash-card">
+    <h1 class="splash-title">AR Protein Visualizer</h1>
+    <p class="splash-sub">Point your camera at the printed marker to see the PPARG protein structure floating in augmented reality.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Print the marker image — click "Download Marker" below or use the one in <code>ar/marker.png</code></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Allow camera access when prompted</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Hold the marker flat and point your camera at it from ~30cm away</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">The protein structure will appear floating above the marker in 3D</div>
+      </div>
+    </div>
+
+    <button class="splash-btn" id="startBtn">Launch AR Camera →</button>
+  </div>
+
+  <a href="marker.png" download style="font-size:11px; color:rgba(232,240,232,0.35); text-decoration:none; margin-top:-16px;">
+    ↓ Download Marker Image
+  </a>
+</div>
+
+<!-- Back button -->
+<a href="/protein" id="back-btn">← Back</a>
+
+<!-- AR HUD -->
+<div id="hud">
+  <div id="hud-top">
+    <div class="hud-brand">
+      <div class="hud-dot"></div>
+      <span class="hud-title">MutaCure AR</span>
+    </div>
+    <span class="hud-status" id="markerStatus">Scanning for marker...</span>
+  </div>
+
+  <div id="hud-bottom">
+    <div class="hud-info-card">
+      <div class="hud-field">
+        <span class="hud-field-label">Gene</span>
+        <span class="hud-field-value">TCF7L2</span>
+      </div>
+      <div class="hud-field">
+        <span class="hud-field-label">Target</span>
+        <span class="hud-field-value green">PPARG</span>
+      </div>
+      <div class="hud-field">
+        <span class="hud-field-label">Affinity</span>
+        <span class="hud-field-value green">–9.3 kcal/mol</span>
+      </div>
+    </div>
+    <div class="hud-actions">
+      <button class="hud-btn" onclick="rotateProtein()">↻ Rotate</button>
+      <button class="hud-btn" onclick="toggleWireframe()">⬡ Wireframe</button>
+      <button class="hud-btn" onclick="zoomIn()">⊕ Zoom</button>
+      <a href="/protein" class="hud-btn hud-btn-back">✕ Exit</a>
+    </div>
+  </div>
+</div>
+
+<!-- Scan reticle (shown while scanning) -->
+<div id="scan-hint">
+  <div class="scan-reticle">
+    <div class="scan-corner tl"></div>
+    <div class="scan-corner tr"></div>
+    <div class="scan-corner bl"></div>
+    <div class="scan-corner br"></div>
+  </div>
+  <span class="scan-text">Point at marker to detect</span>
+</div>
+
+<!-- A-Frame AR Scene -->
+<a-scene
+  id="arScene"
+  vr-mode-ui="enabled: false"
+  renderer="logarithmicDepthBuffer: true; precision: medium;"
+  embedded
+  arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+>
+  <!-- Assets -->
+  <a-assets>
+    <a-asset-item id="protein-model" src="/files/protein_current.pdb"></a-asset-item>
+  </a-assets>
+
+  <!-- Marker — uses Hiro pattern (standard, easy to print) -->
+  <a-marker
+    type="pattern"
+    preset="hiro"
+    id="marker"
+    smooth="true"
+    smoothCount="10"
+    smoothTolerance="0.01"
+    smoothThreshold="5"
+  >
+
+    <!-- Protein "blob" — animated sphere cluster mimicking protein surface -->
+    <a-entity id="protein-root" rotation="-90 0 0">
+
+      <!-- Central nucleus -->
+      <a-sphere
+        id="nucleus"
+        position="0 0 0"
+        radius="0.25"
+        color="#2d8c36"
+        opacity="0.85"
+        material="transparent: true; roughness: 0.4; metalness: 0.2;"
+        animation="property: scale; to: 1.08 1.08 1.08; dur: 2000; dir: alternate; loop: true; easing: easeInOutSine"
+      ></a-sphere>
+
+      <!-- Mutation site (red cluster) -->
+      <a-sphere
+        position="0.18 0.1 0.08"
+        radius="0.09"
+        color="#e05c5c"
+        material="roughness: 0.3; metalness: 0.3;"
+        animation="property: position; to: 0.19 0.12 0.09; dur: 1800; dir: alternate; loop: true; easing: easeInOutSine"
+      >
+        <!-- Mutation label -->
+        <a-text
+          value="Mutation Site\nArg325Trp"
+          position="0.15 0.08 0"
+          scale="0.3 0.3 0.3"
+          color="#ffcccc"
+          align="left"
+        ></a-text>
+      </a-sphere>
+
+      <!-- Binding pocket (blue) -->
+      <a-sphere
+        position="-0.15 0.08 0.12"
+        radius="0.07"
+        color="#5b9bd5"
+        material="roughness: 0.2; metalness: 0.4; transparent: true; opacity: 0.75;"
+        animation="property: scale; to: 1.15 1.15 1.15; dur: 1600; dir: alternate; loop: true; easing: easeInOutSine"
+      ></a-sphere>
+
+      <!-- Surface residue blobs -->
+      <a-sphere position="0.2 0 0.1" radius="0.06" color="#3aa844" opacity="0.7" material="transparent: true;"></a-sphere>
+      <a-sphere position="-0.2 0.05 -0.05" radius="0.07" color="#3aa844" opacity="0.65" material="transparent: true;"></a-sphere>
+      <a-sphere position="0.05 0.22 0.06" radius="0.06" color="#4caf50" opacity="0.7" material="transparent: true;"></a-sphere>
+      <a-sphere position="-0.08 -0.18 0.1" radius="0.065" color="#3aa844" opacity="0.6" material="transparent: true;"></a-sphere>
+      <a-sphere position="0.15 -0.12 -0.08" radius="0.055" color="#4caf50" opacity="0.65" material="transparent: true;"></a-sphere>
+      <a-sphere position="-0.18 -0.08 0.15" radius="0.06" color="#3aa844" opacity="0.7" material="transparent: true;"></a-sphere>
+      <a-sphere position="0.1 0.18 -0.12" radius="0.065" color="#4caf50" opacity="0.6" material="transparent: true;"></a-sphere>
+
+      <!-- Orbiting electron-like particles -->
+      <a-torus
+        position="0 0 0"
+        radius="0.38"
+        radius-tubular="0.008"
+        color="#6fcf7a"
+        opacity="0.3"
+        material="transparent: true;"
+        animation="property: rotation; to: 360 45 0; dur: 6000; loop: true; easing: linear"
+      ></a-torus>
+
+      <a-torus
+        position="0 0 0"
+        radius="0.45"
+        radius-tubular="0.006"
+        color="#4caf50"
+        opacity="0.2"
+        material="transparent: true;"
+        rotation="90 0 0"
+        animation="property: rotation; to: 90 360 0; dur: 9000; loop: true; easing: linear"
+      ></a-torus>
+
+      <!-- Floating label above protein -->
+      <a-entity position="0 0.55 0">
+        <a-plane
+          width="0.9"
+          height="0.22"
+          color="#111d13"
+          opacity="0.85"
+          material="transparent: true;"
+        ></a-plane>
+        <a-text
+          value="PPARG — MutaCure_001"
+          align="center"
+          position="0 0 0.01"
+          color="#6fcf7a"
+          scale="0.22 0.22 0.22"
+        ></a-text>
+      </a-entity>
+
+    </a-entity>
+  </a-marker>
+
+  <!-- Camera -->
+  <a-entity camera></a-entity>
+</a-scene>
+
+<script>
+  const API_BASE = window.location.protocol + "//" + window.location.hostname + ":8000";
+
+  let arStarted = false;
+  let wireframeMode = false;
+  let zoomLevel = 1;
+
+  // Start AR
+  document.getElementById("startBtn").addEventListener("click", () => {
+    startAR();
+  });
+
+  function startAR() {
+    if (arStarted) return;
+    arStarted = true;
+
+    const splash = document.getElementById("splash");
+    splash.classList.add("fade-out");
+    setTimeout(() => { splash.style.display = "none"; }, 500);
+
+    const scene = document.getElementById("arScene");
+    scene.classList.add("active");
+
+    document.getElementById("hud").classList.add("active");
+    document.getElementById("back-btn").classList.add("active");
+
+    // Load current PDB if available
+    loadCurrentPDB();
+
+    // Marker events
+    const marker = document.getElementById("marker");
+    marker.addEventListener("markerFound", () => {
+      document.getElementById("markerStatus").textContent = "Marker detected ✓";
+      document.getElementById("scan-hint").classList.add("hidden");
+    });
+
+    marker.addEventListener("markerLost", () => {
+      document.getElementById("markerStatus").textContent = "Scanning for marker...";
+      document.getElementById("scan-hint").classList.remove("hidden");
+    });
+  }
+
+  // Try to fetch the latest PDB from the backend
+  async function loadCurrentPDB() {
+    try {
+      const res = await fetch(`${API_BASE}/api/generate-protein`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_protein: "PPARG", max_length: 100 })
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      console.log("[MutaCure AR] PDB ready:", data.pdb_url);
+      // In a full implementation, we'd load the PDB into the A-Frame entity
+      // via a custom Three.js PDB loader here
+    } catch (e) {
+      console.warn("[MutaCure AR] Could not fetch PDB:", e.message);
+    }
+  }
+
+  // HUD controls
+  function rotateProtein() {
+    const root = document.getElementById("protein-root");
+    if (!root) return;
+    const current = root.getAttribute("rotation") || { x: -90, y: 0, z: 0 };
+    root.setAttribute("rotation", {
+      x: current.x,
+      y: (current.y || 0) + 45,
+      z: current.z
+    });
+  }
+
+  function toggleWireframe() {
+    wireframeMode = !wireframeMode;
+    const nucleus = document.getElementById("nucleus");
+    if (nucleus) {
+      nucleus.setAttribute("material", {
+        wireframe: wireframeMode,
+        color: "#6fcf7a"
+      });
+    }
+  }
+
+  function zoomIn() {
+    zoomLevel = zoomLevel >= 2 ? 1 : zoomLevel + 0.25;
+    const root = document.getElementById("protein-root");
+    if (root) {
+      root.setAttribute("scale", `${zoomLevel} ${zoomLevel} ${zoomLevel}`);
+    }
+  }
+</script>
+
+</body>
+</html>
