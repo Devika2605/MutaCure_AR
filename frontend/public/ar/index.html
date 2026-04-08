@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>MutaCure AR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1a0f; font-family: monospace; overflow: hidden; }
+  #ui {
+    position: fixed; top: 16px; left: 16px; z-index: 999;
+    background: rgba(13,26,15,0.85); border: 1px solid rgba(74,163,84,0.3);
+    border-radius: 12px; padding: 14px 18px; color: #e8f0e8; max-width: 280px;
+  }
+  #ui h2 { font-size: 14px; color: #6fcf7a; margin-bottom: 6px; }
+  #ui p  { font-size: 11px; color: rgba(232,240,232,0.5); line-height: 1.5; }
+  #status {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(13,26,15,0.9); border: 1px solid rgba(74,163,84,0.3);
+    border-radius: 20px; padding: 8px 20px; color: #6fcf7a;
+    font-size: 12px; font-family: monospace; z-index: 999;
+  }
+  a-scene { width: 100vw; height: 100vh; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+</head>
+<body>
+
+<div id="ui">
+  <h2>MutaCure AR</h2>
+  <p>Point your camera at the Hiro marker to see the mutated PPARG protein in augmented reality.</p>
+</div>
+<div id="status">Initializing camera...</div>
+
+<a-scene
+  embedded
+  arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+  vr-mode-ui="enabled: false"
+  renderer="logarithmicDepthBuffer: true; antialias: true"
+  id="scene">
+
+  <a-assets>
+    <img id="label-tex" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='64'%3E%3Crect width='256' height='64' rx='8' fill='%230d1a0f' fill-opacity='0.85'/%3E%3Ctext x='128' y='38' font-family='monospace' font-size='22' fill='%236fcf7a' text-anchor='middle'%3EPPARG Mutant%3C/text%3E%3C/svg%3E"/>
+  </a-assets>
+
+  <!-- Hiro marker — print from https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg -->
+  <a-marker preset="hiro" id="marker">
+
+    <!-- Protein stand-in: rotating double helix made of spheres -->
+    <a-entity id="protein" position="0 0.5 0" rotation="0 0 0"
+      animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+
+      <!-- Helix strand A -->
+      <a-sphere position="0 0 0"      radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="0.15 0.12 0.1"  radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="0.2 0.24 0.25" radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="0.1 0.36 0.35" radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="-0.05 0.48 0.3" radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="-0.18 0.6 0.15" radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="-0.2 0.72 0"   radius="0.06" color="#4caf50"></a-sphere>
+      <a-sphere position="-0.1 0.84 -0.15" radius="0.06" color="#4caf50"></a-sphere>
+
+      <!-- Helix strand B (offset) -->
+      <a-sphere position="0 0.12 0.3"   radius="0.06" color="#5b9bd5"></a-sphere>
+      <a-sphere position="-0.15 0.24 0.2"  radius="0.06" color="#5b9bd5"></a-sphere>
+      <a-sphere position="-0.2 0.36 0.05" radius="0.06" color="#5b9bd5"></a-sphere>
+      <a-sphere position="-0.1 0.48 -0.1" radius="0.06" color="#5b9bd5"></a-sphere>
+      <a-sphere position="0.05 0.6 -0.2"  radius="0.06" color="#5b9bd5"></a-sphere>
+      <a-sphere position="0.18 0.72 -0.1" radius="0.06" color="#5b9bd5"></a-sphere>
+      <a-sphere position="0.2 0.84 0.05"  radius="0.06" color="#5b9bd5"></a-sphere>
+
+      <!-- Mutation site — red highlight -->
+      <a-sphere position="0.2 0.24 0.25" radius="0.1" color="#e05c5c"
+        animation="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; loop: true; dur: 1200; direction: alternate; easing: easeInOutSine">
+      </a-sphere>
+
+      <!-- Connecting rungs -->
+      <a-cylinder position="0.075 0.06 0.05"  radius="0.015" height="0.22" color="#888" rotation="45 0 60"></a-cylinder>
+      <a-cylinder position="0.025 0.3 0.3"    radius="0.015" height="0.22" color="#888" rotation="30 0 45"></a-cylinder>
+      <a-cylinder position="-0.125 0.54 0.225" radius="0.015" height="0.22" color="#888" rotation="25 0 50"></a-cylinder>
+      <a-cylinder position="-0.15 0.78 -0.075" radius="0.015" height="0.22" color="#888" rotation="35 0 55"></a-cylinder>
+    </a-entity>
+
+    <!-- Label above -->
+    <a-image src="#label-tex" position="0 1.5 0" width="1.2" height="0.3"
+      animation="property: position; from: 0 1.5 0; to: 0 1.65 0; loop: true; dur: 2000; direction: alternate; easing: easeInOutSine">
+    </a-image>
+
+  </a-marker>
+
+  <a-entity camera></a-entity>
+</a-scene>
+
+<script>
+  var marker = document.getElementById("marker");
+  var status = document.getElementById("status");
+
+  marker.addEventListener("markerFound", function() {
+    status.textContent = "PPARG mutation detected — AR active";
+    status.style.borderColor = "rgba(74,163,84,0.6)";
+    status.style.color = "#6fcf7a";
+  });
+
+  marker.addEventListener("markerLost", function() {
+    status.textContent = "Point camera at Hiro marker";
+    status.style.borderColor = "rgba(74,163,84,0.3)";
+    status.style.color = "rgba(232,240,232,0.5)";
+  });
+
+  // Update status once camera starts
+  document.getElementById("scene").addEventListener("camera-init", function() {
+    status.textContent = "Point camera at Hiro marker";
+  });
+</script>
+</body>
+</html>

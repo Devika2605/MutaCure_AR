@@ -1,10 +1,6 @@
 """
-generator.py — Therapeutic protein sequence retrieval via UniProt API.
-
-Strategy change: Instead of generating a random sequence with ProtGPT2
-(whose HF Inference API returned 410 Gone), we fetch the REAL sequence of
-the target protein from UniProt. For a hackathon this is actually BETTER —
-we're folding the actual therapeutic target, not a random string.
+generator.py — Fetches protein sequence from UniProt and applies known
+disease-causing missense mutations before folding.
 
 Person 2 owns this file.
 """
@@ -15,24 +11,31 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# UniProt REST API — free, no auth needed
 UNIPROT_SEARCH_URL = "https://rest.uniprot.org/uniprotkb/search"
-UNIPROT_FASTA_URL  = "https://rest.uniprot.org/uniprotkb/{accession}.fasta"
 REQUEST_TIMEOUT = 30
-
 _AA = set("ACDEFGHIKLMNPQRSTVWY")
 
-# Hardcoded fallback sequences for the demo targets so the demo always works
-# even if UniProt is slow
+DISEASE_MUTATIONS = {
+    "PPARG": [
+        (115, "P", "Q", "P115Q - impairs ligand binding domain, T2D-linked"),
+        (425, "L", "P", "L425P - disrupts helix 10, dominant negative"),
+    ],
+    "BRCA1": [
+        (1699, "R", "W", "R1699W - BRCT domain, disrupts tumor suppressor"),
+    ],
+    "EGFR": [
+        (858, "L", "R", "L858R - activating mutation, drives lung cancer"),
+    ],
+    "APOE": [
+        (112, "C", "R", "C112R - APOE3 to APOE4 conversion, Alzheimers risk"),
+    ],
+}
+
 _FALLBACK_SEQUENCES = {
-    "PPARG": (
-        "MGETLGDSPEPAASGPGAAKSEAAAAAAAAAAAEGKGDRGEGEGPGAEPGPEAAAAGKKKGPEAAAGKK"
-        "QKPGAGPSQGLPQGRPGLQQLPQGLPAQGLPQGRPGLQQLPQGLPAQGLPQGRP"
-    ),
-    "TCF7L2": (
-        "MAVQSSSYADQLADLQNELDNMSASLQQQQQQHQQHQQLQQQHQHQQQHQHQQQLQQQHQQHQQLQQQ"
-        "HQHQQQHQHQQQLQQQHQQHQQLQQQHQHQQQHQHQQQLQQQHQ"
-    ),
+    "PPARG":  "MGETLGDSPIDPESDSFTDTLSANISQEMTMVDTEMFFWPNLALQIEDPPAVHFPEGAPGRGSKFSSQRPSTIPPHSSTHPLVGRP",
+    "BRCA1":  "MDLSALRVEEVQNVINAMQKILECPICLELIKEPVSTKCDHIFCKFCMLKLLNQKKGPSQCPLCKNDITKRSLQESTRFSQLVEELLK",
+    "EGFR":   "MRPSGTAGAALLALLAALCPASRALEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEVVLGNLEITYVQRNYDLSFLKTIQEVAGY",
+    "APOE":   "MKVLWAALLVTFLAGCQAKVEQAVETEPEPELRQQTEWQSGQRWELALGRFWDYLRWVQTLSEQVQEELLSSQVTQELRALMDETMK",
 }
 
 
@@ -40,44 +43,58 @@ def generate_protein_sequence(
     target_protein: str,
     seed_sequence: str = "",
     max_length: int = 200,
+    apply_mutation: bool = True,
     **kwargs,
-) -> str:
-    """
-    Fetch the canonical amino-acid sequence for target_protein from UniProt.
-    Falls back to a hardcoded sequence if UniProt is unreachable.
-
-    Args:
-        target_protein: Gene/protein name e.g. "PPARG", "TCF7L2".
-        seed_sequence:  Unused — kept for API compatibility.
-        max_length:     Truncate returned sequence to this length.
-
-    Returns:
-        Uppercase amino-acid sequence string.
-    """
+) -> dict:
     logger.info(f"Fetching sequence for {target_protein} from UniProt...")
 
     try:
-        sequence = _fetch_from_uniprot(target_protein)
+        wildtype = _fetch_from_uniprot(target_protein)
     except Exception as exc:
-        logger.warning(f"UniProt fetch failed ({exc}), using fallback sequence.")
-        sequence = _get_fallback(target_protein)
+        logger.warning(f"UniProt fetch failed ({exc}), using fallback.")
+        wildtype = _get_fallback(target_protein)
 
-    # Truncate to max_length so ESMFold doesn't choke
-    if len(sequence) > max_length:
-        logger.info(f"Truncating sequence from {len(sequence)} to {max_length} AA.")
-        sequence = sequence[:max_length]
+    wildtype = wildtype[:max_length]
 
-    logger.info(f"Final sequence length: {len(sequence)} AA")
-    return sequence
+    if apply_mutation and target_protein.upper() in DISEASE_MUTATIONS:
+        mutated, positions, info = _apply_mutations(
+            wildtype, DISEASE_MUTATIONS[target_protein.upper()]
+        )
+        logger.info(f"Applied mutation: {info}")
+    else:
+        mutated = wildtype
+        positions = []
+        info = "No mutation applied (wild-type)"
+
+    logger.info(f"Sequence ready - {len(mutated)} AA, {len(positions)} mutation site(s)")
+
+    return {
+        "sequence": mutated,
+        "wildtype": wildtype,
+        "mutation_info": info,
+        "mutated_positions": positions,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+def _apply_mutations(sequence: str, mutations: list) -> tuple:
+    seq = list(sequence)
+    applied = []
+    positions = []
+
+    for pos_1based, wt_aa, mut_aa, description in mutations:
+        idx = pos_1based - 1
+        if idx >= len(seq):
+            logger.warning(f"Mutation at pos {pos_1based} outside length {len(seq)}, skipping.")
+            continue
+        seq[idx] = mut_aa
+        applied.append(description)
+        positions.append(idx)
+
+    info = " | ".join(applied) if applied else "No mutations in range"
+    return "".join(seq), positions, info
+
 
 def _fetch_from_uniprot(protein_name: str) -> str:
-    """Search UniProt for the protein and return its canonical sequence."""
-    # Search for the best reviewed (Swiss-Prot) human entry
     params = {
         "query": f"gene:{protein_name} AND organism_id:9606 AND reviewed:true",
         "format": "fasta",
@@ -85,20 +102,13 @@ def _fetch_from_uniprot(protein_name: str) -> str:
     }
     response = httpx.get(UNIPROT_SEARCH_URL, params=params, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
-
     fasta = response.text
     if not fasta.strip():
         raise ValueError(f"No UniProt entry found for {protein_name}")
-
-    sequence = _parse_fasta(fasta)
-    if not sequence:
-        raise ValueError(f"Could not parse FASTA for {protein_name}")
-
-    return sequence
+    return _parse_fasta(fasta)
 
 
 def _parse_fasta(fasta: str) -> str:
-    """Extract and clean the sequence from a FASTA string."""
     lines = fasta.strip().splitlines()
     seq_lines = [l for l in lines if not l.startswith(">")]
     raw = "".join(seq_lines).upper()
@@ -106,11 +116,7 @@ def _parse_fasta(fasta: str) -> str:
 
 
 def _get_fallback(protein_name: str) -> str:
-    key = protein_name.upper()
-    if key in _FALLBACK_SEQUENCES:
-        return _FALLBACK_SEQUENCES[key]
-    # Generic fallback: a short valid sequence
-    return "MKVLWAALLVTFLAGCQAKVEQAVETEPEPELRQQTEWQSGQRWELALGRFWDYLRWVQTLSEQVQEELLSSQVTQELRALMDETMKELKAYKSELEEQLTPVAEETRARLSKELQAAQARLGADVLASHGRLVQYRGEVQAMLGQSTEELRVRLASHLRKLRKRLLRDADDLQKRLAVYQAGAREGAERGLSAIRERLGPLVEQGRVRAATVGSLAGQPLQERAQAWGERLRARMEEMGSRTRDRLDEVKEQVAEVRAKLEEQAQQIRLKTTPLAQSTLKITLQTSQ"
+    return _FALLBACK_SEQUENCES.get(protein_name.upper(), "MKVLWAALLVTFLAGCQAK")
 
 
 def _clean_sequence(raw: str) -> str:
