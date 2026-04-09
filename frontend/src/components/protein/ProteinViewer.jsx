@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./ProteinViewer.module.css";
-import ARLaunchPanel from "./ARLaunchPanel";
+import ARLaunchPanel from "./ARLaunchPanel"; // kept from Doc 5
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const DISEASE_OPTIONS = [
-  { label: "Type 2 Diabetes", gene: "TCF7L2", variant: "rs7903146",   target: "PPARG", risk: 0.87 },
-  { label: "Breast Cancer",   gene: "BRCA1",  variant: "rs80357906",  target: "BRCA1", risk: 0.79 },
-  { label: "Lung Cancer",     gene: "EGFR",   variant: "rs121434568", target: "EGFR",  risk: 0.74 },
-  { label: "Alzheimer's",     gene: "APOE",   variant: "rs429358",    target: "APOE",  risk: 0.62 },
+  { label: "Type 2 Diabetes",    gene: "TCF7L2", variant: "rs7903146",   target: "PPARG", risk: 0.87 },
+  { label: "Breast Cancer",      gene: "BRCA1",  variant: "rs80357906",  target: "BRCA1", risk: 0.79 },
+  { label: "Lung Cancer",        gene: "EGFR",   variant: "rs121434568", target: "EGFR",  risk: 0.74 },
+  { label: "Alzheimer's Disease",gene: "APOE",   variant: "rs429358",    target: "APOE",  risk: 0.62 },
 ];
 
 // ── Read URL params ONCE outside the component (safe — runs at module load) ──
@@ -27,9 +27,11 @@ function getInitialDisease() {
   const { target, gene, variant, risk } = getUrlParams();
   if (!target) return DISEASE_OPTIONS[0];
 
+  // Try to match a preset
   const match = DISEASE_OPTIONS.find(d => d.target === target || d.gene === gene);
   if (match) return match;
 
+  // Custom gene from mutation dashboard
   if (gene && target) {
     return {
       label:   `${gene} (Custom)`,
@@ -43,13 +45,14 @@ function getInitialDisease() {
   return DISEASE_OPTIONS[0];
 }
 
-export default function ProteinViewer() {
+// ── Component — accepts optional mutationData prop (Doc 5 compat) ──
+export default function ProteinViewer({ mutationData }) {
   const [phase,           setPhase]           = useState("idle");
   const [result,          setResult]          = useState(null);
   const [error,           setError]           = useState(null);
   const [selectedDisease, setSelectedDisease] = useState(getInitialDisease);
   const [log,             setLog]             = useState([]);
-  const [viewMode,        setViewMode]        = useState("wildtype");
+  const [viewMode,        setViewMode]        = useState("wildtype"); // wildtype | mutated | compare
   const [wildtypeUrl,     setWildtypeUrl]     = useState("");
   const [mutatedUrl,      setMutatedUrl]      = useState("");
 
@@ -94,23 +97,17 @@ export default function ProteinViewer() {
     }
   }, [selectedDisease]);
 
-  // ── Auto-generate if we arrived from the mutation dashboard ──
+  // ── Auto-generate if arriving from mutation dashboard (Doc 6) ──
   useEffect(() => {
     const { target } = getUrlParams();
     if (!target) return;
     if (autoTriggered.current) return;
     autoTriggered.current = true;
-
     const timer = setTimeout(() => generateProtein(), 300);
     return () => clearTimeout(timer);
   }, [generateProtein]);
 
-  // ── Set viewer URLs when result is ready ─────────────────────
-  // MERGED: feat/mutation builds dual wildtype/mutated URLs with mut & info params
-  //         (powers the toggle + compare feature).
-  //         dev set a simple single src on the iframe — that behaviour is preserved:
-  //         molRef.current.src = wtUrl gives the same initial load dev intended,
-  //         and the dual URLs are also stored for the toggle/compare buttons.
+  // ── Set viewer URLs when result is ready (Doc 6 enhanced) ────
   useEffect(() => {
     if (phase !== "done" || !result?.pdb_url || !molRef.current) return;
 
@@ -127,7 +124,7 @@ export default function ProteinViewer() {
     molRef.current.src = wtUrl;
   }, [phase, result]);
 
-  // ── Switch single-pane iframe on toggle ──────────────────────
+  // ── Switch view (Doc 6) ───────────────────────────────────────
   const switchView = (mode) => {
     setViewMode(mode);
     if (mode === "wildtype" && molRef.current) molRef.current.src = wildtypeUrl;
@@ -291,7 +288,7 @@ export default function ProteinViewer() {
             </div>
           )}
 
-          {/* AR Launch Panel — INSIDE sidebar, after error card */}
+          {/* AR Launch Panel — from Doc 5, inside sidebar after error card */}
           {phase === "done" && result && (
             <ARLaunchPanel result={result} selectedDisease={selectedDisease} />
           )}
@@ -300,7 +297,7 @@ export default function ProteinViewer() {
         {/* ── Right: 3D Viewer ── */}
         <div className={styles.viewerPanel}>
 
-          {/* Viewer header + toggle */}
+          {/* Viewer header + Wild Type / Mutated / Compare toggle (Doc 6) */}
           <div className={styles.viewerHeader}>
             <span className={styles.viewerTitle}>3D Protein Structure</span>
             {phase === "done" && (
@@ -354,6 +351,7 @@ export default function ProteinViewer() {
               </div>
             )}
 
+            {/* Single-pane iframe for wildtype / mutated modes */}
             {phase === "done" && result && viewMode !== "compare" && (
               <iframe
                 ref={molRef}
@@ -363,6 +361,7 @@ export default function ProteinViewer() {
               />
             )}
 
+            {/* Split-pane compare mode (Doc 6) */}
             {phase === "done" && result && viewMode === "compare" && (
               <div style={toggleStyles.compareWrap}>
                 <div style={toggleStyles.pane}>
@@ -391,6 +390,7 @@ export default function ProteinViewer() {
               </div>
             )}
 
+            {/* Legend — hidden in compare mode (already labelled in pane headers) */}
             {phase === "done" && viewMode !== "compare" && (
               <div className={styles.legend}>
                 <div className={styles.legendItem}>
@@ -428,7 +428,7 @@ export default function ProteinViewer() {
   );
 }
 
-// ── Toggle + Compare styles ───────────────────────────────────
+// ── Toggle + Compare inline styles (Doc 6) ────────────────────
 const toggleStyles = {
   group: {
     display: "flex", gap: 3,

@@ -1,568 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MutaCure AR — Protein Viewer</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mol* Viewer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/molstar@3.45.0/build/viewer/molstar.css"/>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#080f09; }
+  #app { width:100%; height:100%; }
 
-  <!-- A-Frame & AR.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  /* ── Wild-type / Mutated banner (from Doc 4) ── */
+  #mode-banner {
+    position:absolute; top:10px; left:50%;
+    transform:translateX(-50%);
+    padding:5px 16px; border-radius:20px;
+    font-family:monospace; font-size:11px;
+    font-weight:600; letter-spacing:0.08em;
+    pointer-events:none; z-index:100;
+  }
+  .wildtype {
+    background:rgba(74,163,84,0.2);
+    border:1px solid rgba(74,163,84,0.5);
+    color:#6fcf7a;
+  }
+  .mutated {
+    background:rgba(224,92,92,0.2);
+    border:1px solid rgba(224,92,92,0.5);
+    color:#e05c5c;
+  }
 
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0d1a0f;
-      font-family: 'DM Mono', 'Fira Code', monospace;
-      color: #e8f0e8;
-      overflow: hidden;
-    }
+  /* ── Mutation info overlay (from Doc 3) ── */
+  #mut-info {
+    position:absolute; top:12px; left:12px;
+    background:rgba(224,92,92,0.12);
+    border:1px solid rgba(224,92,92,0.3);
+    border-radius:8px; padding:8px 12px;
+    font-family:monospace; font-size:11px;
+    color:#e8a0a0; max-width:260px; line-height:1.5;
+    pointer-events:none; z-index:100;
+  }
 
-    /* ── feat/mutation: Splash screen ── */
-    #splash {
-      position: fixed; inset: 0; background: #0d1a0f;
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; z-index: 1000; gap: 32px;
-      transition: opacity 0.5s ease;
-    }
-    #splash.fade-out { opacity: 0; pointer-events: none; }
+  /* ── Dynamic legend (from Doc 4) ── */
+  #legend {
+    position:absolute; bottom:12px; left:12px;
+    background:rgba(13,26,15,0.9);
+    border:1px solid rgba(74,163,84,0.2);
+    border-radius:8px; padding:10px 14px;
+    font-family:monospace; font-size:11px;
+    color:rgba(232,240,232,0.8);
+    pointer-events:none; z-index:100;
+  }
+  #legend div { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+  #legend div:last-child { margin-bottom:0; }
+  .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
-    .splash-logo { display: flex; align-items: center; gap: 12px; }
-    .splash-logo-icon {
-      width: 44px; height: 44px; border-radius: 12px;
-      background: rgba(74,163,84,0.2); border: 1px solid rgba(74,163,84,0.4);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .splash-logo-text { font-family: 'DM Sans', sans-serif; font-size: 24px; font-weight: 700; color: #e8f0e8; }
-    .splash-logo-text span { color: #6fcf7a; }
-
-    .splash-card {
-      background: #111d13; border: 1px solid rgba(74,163,84,0.2);
-      border-radius: 16px; padding: 32px; max-width: 420px; width: 90%; text-align: center;
-    }
-    .splash-title { font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 600; color: #e8f0e8; margin-bottom: 8px; }
-    .splash-sub { font-size: 12px; color: rgba(232,240,232,0.45); margin-bottom: 24px; line-height: 1.6; }
-
-    .steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; text-align: left; }
-    .step { display: flex; align-items: flex-start; gap: 12px; }
-    .step-num {
-      width: 22px; height: 22px; border-radius: 50%;
-      background: rgba(74,163,84,0.2); border: 1px solid rgba(74,163,84,0.4);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; color: #6fcf7a; flex-shrink: 0; margin-top: 1px;
-    }
-    .step-text { font-size: 12px; color: rgba(232,240,232,0.65); line-height: 1.5; }
-
-    .splash-btn {
-      width: 100%; padding: 14px; background: #2d6a31; border: none; border-radius: 10px;
-      color: #e8f0e8; font-size: 15px; font-family: 'DM Sans', sans-serif;
-      font-weight: 500; cursor: pointer; transition: background 0.15s;
-    }
-    .splash-btn:hover { background: #357a3a; }
-
-    /* ── feat/mutation: AR HUD ── */
-    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 100; display: none; }
-    #hud.active { display: block; }
-
-    #hud-top {
-      position: absolute; top: 0; left: 0; right: 0; padding: 16px 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(13,26,15,0.85) 0%, transparent 100%);
-    }
-    .hud-brand { display: flex; align-items: center; gap: 10px; }
-    .hud-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: #6fcf7a;
-      box-shadow: 0 0 8px #6fcf7a; animation: hudPulse 2s ease-in-out infinite;
-    }
-    @keyframes hudPulse { 0%,100%{opacity:1;box-shadow:0 0 8px #6fcf7a} 50%{opacity:.5;box-shadow:0 0 4px #6fcf7a} }
-    .hud-title { font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; color: #e8f0e8; }
-    .hud-status { font-size: 11px; color: rgba(232,240,232,0.5); font-family: 'DM Mono', monospace; }
-
-    #hud-bottom {
-      position: absolute; bottom: 0; left: 0; right: 0; padding: 20px;
-      background: linear-gradient(to top, rgba(13,26,15,0.9) 0%, transparent 100%);
-    }
-    .hud-info-card {
-      background: rgba(17,29,19,0.88); border: 1px solid rgba(74,163,84,0.25);
-      border-radius: 14px; padding: 16px 18px;
-      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;
-      pointer-events: auto;
-    }
-    .hud-field { display: flex; flex-direction: column; gap: 4px; }
-    .hud-field-label { font-size: 10px; color: rgba(232,240,232,0.35); text-transform: uppercase; letter-spacing: 0.07em; }
-    .hud-field-value { font-size: 13px; color: #e8f0e8; font-weight: 500; }
-    .hud-field-value.green { color: #6fcf7a; }
-
-    .hud-actions { display: flex; gap: 10px; margin-top: 14px; }
-    .hud-btn {
-      flex: 1; padding: 10px;
-      background: rgba(74,163,84,0.12); border: 1px solid rgba(74,163,84,0.25);
-      border-radius: 8px; color: #6fcf7a; font-size: 12px;
-      font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.15s;
-    }
-    .hud-btn:hover { background: rgba(74,163,84,0.2); }
-    .hud-btn-back { background: rgba(232,240,232,0.06); border-color: rgba(232,240,232,0.12); color: rgba(232,240,232,0.6); }
-
-    /* ── feat/mutation: scan reticle ── */
-    #scan-hint {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      pointer-events: none; z-index: 100;
-      display: flex; flex-direction: column; align-items: center; gap: 16px;
-      transition: opacity 0.4s;
-    }
-    #scan-hint.hidden { opacity: 0; }
-    .scan-reticle { width: 180px; height: 180px; position: relative; }
-    .scan-corner {
-      position: absolute; width: 24px; height: 24px;
-      border-color: #6fcf7a; border-style: solid;
-      animation: scanPulse 1.5s ease-in-out infinite;
-    }
-    .scan-corner.tl { top:0;left:0;border-width:3px 0 0 3px;border-radius:4px 0 0 0; }
-    .scan-corner.tr { top:0;right:0;border-width:3px 3px 0 0;border-radius:0 4px 0 0; }
-    .scan-corner.bl { bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 4px; }
-    .scan-corner.br { bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 4px 0; }
-    @keyframes scanPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .scan-text {
-      font-size: 12px; color: rgba(232,240,232,0.6);
-      background: rgba(13,26,15,0.75); padding: 6px 14px;
-      border-radius: 20px; border: 1px solid rgba(74,163,84,0.2);
-    }
-
-    /* ── dev: compact info panel (top-left, shown in AR mode) ── */
-    #ui {
-      position: fixed; top: 12px; left: 12px; z-index: 999;
-      background: rgba(13,26,15,0.88); border: 1px solid rgba(74,163,84,0.35);
-      border-radius: 10px; padding: 10px 14px; color: #e8f0e8; max-width: 200px;
-      display: none;
-    }
-    #ui.active { display: block; }
-    #ui h2 { font-size: 13px; color: #6fcf7a; margin-bottom: 3px; }
-    #ui p  { font-size: 10px; color: rgba(232,240,232,0.5); line-height: 1.4; }
-
-    /* ── dev: mutation badge ── */
-    #mut-badge {
-      position: fixed; top: 12px; right: 12px; z-index: 999;
-      background: rgba(224,92,92,0.15); border: 1px solid rgba(224,92,92,0.35);
-      border-radius: 8px; padding: 8px 12px;
-      color: #e8a0a0; font-size: 10px; max-width: 170px; line-height: 1.4;
-      display: none;
-    }
-    #mut-badge.active { display: block; }
-
-    /* ── dev: marker panel (on-screen marker for phone to scan) ── */
-    #marker-panel {
-      position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
-      z-index: 999; background: rgba(13,26,15,0.92);
-      border: 1px solid rgba(74,163,84,0.3); border-radius: 12px;
-      padding: 10px; text-align: center; display: none;
-    }
-    #marker-panel p { font-size: 10px; color: #6fcf7a; margin-bottom: 6px; }
-    #marker-panel img { width: 120px; height: 120px; border-radius: 6px; }
-
-    /* ── dev: toggle marker button ── */
-    #toggle-marker {
-      position: fixed; bottom: 60px; right: 12px; z-index: 999;
-      background: rgba(13,26,15,0.92); border: 1px solid rgba(74,163,84,0.3);
-      border-radius: 8px; padding: 7px 12px;
-      color: #6fcf7a; font-size: 11px; cursor: pointer; display: none;
-    }
-    #toggle-marker.active { display: block; }
-
-    /* ── dev: gesture hint ── */
-    #gesture-hint {
-      position: fixed; bottom: 56px; left: 12px;
-      background: rgba(13,26,15,0.7); border-radius: 16px; padding: 5px 12px;
-      color: rgba(232,240,232,0.35); font-size: 10px; z-index: 999;
-      pointer-events: none; display: none;
-    }
-
-    /* ── feat/mutation: back button ── */
-    #back-btn {
-      position: fixed; top: 16px; left: 16px; z-index: 200; display: none;
-      padding: 8px 14px; background: rgba(17,29,19,0.88);
-      border: 1px solid rgba(74,163,84,0.25); border-radius: 8px;
-      color: #6fcf7a; font-size: 12px; font-family: 'DM Mono', monospace;
-      cursor: pointer; pointer-events: auto; text-decoration: none;
-    }
-    #back-btn.active { display: block; }
-
-    a-scene { display: none; }
-    a-scene.active { display: block; }
-  </style>
+  /* ── Status loader ── */
+  #status {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    color:#6fcf7a; font-family:monospace;
+    font-size:13px; text-align:center;
+    pointer-events:none; z-index:100;
+  }
+  @keyframes blink { 50%{opacity:0} }
+</style>
 </head>
 <body>
 
-<!-- ── feat/mutation: Splash screen ── -->
-<div id="splash">
-  <div class="splash-logo">
-    <div class="splash-logo-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6fcf7a" stroke-width="1.5">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-      </svg>
-    </div>
-    <span class="splash-logo-text">MutaCure <span>AR</span></span>
-  </div>
+<div id="app"></div>
+<div id="status">Loading structure<span style="animation:blink 1s step-start infinite;display:inline-block">...</span></div>
+<div id="mode-banner"></div>
+<div id="mut-info" style="display:none"></div>
+<div id="legend"></div>
 
-  <div class="splash-card">
-    <h1 class="splash-title">AR Protein Visualizer</h1>
-    <p class="splash-sub">Point your camera at the Hiro marker to see the protein structure floating in augmented reality.</p>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-text">Print the marker image — click "Download Marker" below or use the one in <code>ar/marker.png</code></div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-text">Allow camera access when prompted</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-text">Hold the marker flat and point your camera at it from ~30cm away</div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-text">The protein structure will appear floating above the marker in 3D</div>
-      </div>
-    </div>
-    <button class="splash-btn" id="startBtn">Launch AR Camera →</button>
-  </div>
-
-  <a href="marker.png" download style="font-size:11px;color:rgba(232,240,232,0.35);text-decoration:none;margin-top:-16px;">
-    ↓ Download Marker Image
-  </a>
-</div>
-
-<!-- ── feat/mutation: Back button ── -->
-<a href="/protein" id="back-btn">← Back</a>
-
-<!-- ── feat/mutation: HUD ── -->
-<div id="hud">
-  <div id="hud-top">
-    <div class="hud-brand">
-      <div class="hud-dot"></div>
-      <span class="hud-title">MutaCure AR</span>
-    </div>
-    <span class="hud-status" id="markerStatus">Scanning for marker...</span>
-  </div>
-  <div id="hud-bottom">
-    <div class="hud-info-card">
-      <div class="hud-field">
-        <span class="hud-field-label">Gene</span>
-        <span class="hud-field-value" id="hud-gene">—</span>
-      </div>
-      <div class="hud-field">
-        <span class="hud-field-label">Target</span>
-        <span class="hud-field-value green" id="hud-protein">—</span>
-      </div>
-      <div class="hud-field">
-        <span class="hud-field-label">Affinity</span>
-        <span class="hud-field-value green" id="hud-affinity">—</span>
-      </div>
-    </div>
-    <div class="hud-actions">
-      <button class="hud-btn" onclick="rotateProtein()">↻ Rotate</button>
-      <button class="hud-btn" onclick="toggleWireframe()">⬡ Wireframe</button>
-      <button class="hud-btn" onclick="zoomIn()">⊕ Zoom</button>
-      <a href="/protein" class="hud-btn hud-btn-back">✕ Exit</a>
-    </div>
-  </div>
-</div>
-
-<!-- ── feat/mutation: Scan reticle ── -->
-<div id="scan-hint">
-  <div class="scan-reticle">
-    <div class="scan-corner tl"></div>
-    <div class="scan-corner tr"></div>
-    <div class="scan-corner bl"></div>
-    <div class="scan-corner br"></div>
-  </div>
-  <span class="scan-text">Point at marker to detect</span>
-</div>
-
-<!-- ── dev: compact info panel, mutation badge, marker panel, toggle, gesture hint ── -->
-<div id="ui">
-  <h2 id="protein-title">MutaCure AR</h2>
-  <p id="protein-sub">Point camera at marker</p>
-</div>
-<div id="mut-badge"></div>
-<div id="gesture-hint">Pinch to zoom · Drag to rotate</div>
-<div id="marker-panel">
-  <p>Point camera here</p>
-  <img src="https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg" alt="Hiro marker"/>
-</div>
-<button id="toggle-marker" onclick="toggleMarker()">Show Marker</button>
-
-<!-- ── A-Frame AR Scene ── -->
-<a-scene
-  id="arScene"
-  vr-mode-ui="enabled: false"
-  renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true;"
-  embedded
-  arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
->
-  <a-marker
-    type="pattern"
-    preset="hiro"
-    id="marker"
-    smooth="true"
-    smoothCount="10"
-    smoothTolerance="0.01"
-    smoothThreshold="5"
-  >
-    <!-- protein-root: glow ring sits here (dev) -->
-    <a-entity id="protein-root" rotation="-90 0 0">
-      <!-- protein-pivot: the spinning model (dev) + feat/mutation static blobs -->
-      <a-entity id="protein-pivot" position="0 0 0">
-        <!-- dev: disease-driven spinner is injected here by JS -->
-      </a-entity>
-    </a-entity>
-  </a-marker>
-
-  <a-entity camera></a-entity>
-</a-scene>
-
+<script src="https://cdn.jsdelivr.net/npm/molstar@3.45.0/build/viewer/molstar.js"></script>
 <script>
-  // ── dev: MODELS map (disease → shape/color/label) ────────────
-  var MODELS = {
-    "Type 2 Diabetes":     { color:"#1D9E75", accent:"#5DCAA5", shape:"helix",  label:"PPARG / T2D",          desc:"Nuclear receptor — metabolic regulation",  gene:"TCF7L2", affinity:"-9.3 kcal/mol" },
-    "Breast Cancer":       { color:"#5b9bd5", accent:"#85B7EB", shape:"barrel", label:"BRCA1 / Breast Cancer", desc:"DNA repair tumor suppressor",              gene:"BRCA1",  affinity:"-8.1 kcal/mol" },
-    "Lung Cancer":         { color:"#EF9F27", accent:"#FAC775", shape:"kinase", label:"EGFR / Lung Cancer",    desc:"Receptor tyrosine kinase",                 gene:"EGFR",   affinity:"-7.8 kcal/mol" },
-    "Alzheimer's Disease": { color:"#9F77DD", accent:"#AFA9EC", shape:"bundle", label:"APOE / Alzheimers",     desc:"Lipid transport — APOE4 risk variant",     gene:"APOE",   affinity:"-8.6 kcal/mol" },
-  };
+window.addEventListener("load", async function() {
 
-  // ── Read URL params (disease, protein, mutation) ──────────────
-  var params  = new URLSearchParams(window.location.search);
-  var disease = params.get("disease") || "Type 2 Diabetes";
-  var protein = params.get("protein") || "PPARG";
-  var mut     = params.get("mut")     || "P115Q";
-  var risk    = params.get("risk")    || "0.87";
+  var params     = new URLSearchParams(window.location.search);
+  var pdbUrl     = params.get("pdb") || "";
+  var mutPos     = parseInt(params.get("mut") || "0");   // 1-based residue number (Doc 3)
+  var mutInfo    = params.get("info") || "";
+  var isWildType = (mutInfo === "Wild+Type" || mutInfo === "Wild%20Type"
+                 || mutInfo === "Wild Type"  || mutInfo === "");
 
-  var model = MODELS[disease] || MODELS["Type 2 Diabetes"];
+  // ── Mode banner (Doc 4) ──────────────────────────────────────
+  var banner = document.getElementById("mode-banner");
+  banner.textContent = isWildType ? "● WILD TYPE" : "● MUTATED";
+  banner.className   = isWildType ? "wildtype"    : "mutated";
 
-  // ── State ─────────────────────────────────────────────────────
-  var arStarted    = false;
-  var wireframeMode = false;
-  var zoomLevel    = 1;
+  // ── Mutation info overlay (Doc 3) ───────────────────────────
+  if (mutInfo && !isWildType) {
+    var infoEl = document.getElementById("mut-info");
+    infoEl.textContent = "Mutation: " + decodeURIComponent(mutInfo);
+    infoEl.style.display = "block";
+  }
 
-  // ── feat/mutation: start AR on splash button ──────────────────
-  document.getElementById("startBtn").addEventListener("click", startAR);
+  // ── Dynamic legend (Doc 4) ───────────────────────────────────
+  var legend = document.getElementById("legend");
+  if (isWildType) {
+    legend.innerHTML = `
+      <div><span class="dot" style="background:#4caf50"></span>Stable backbone</div>
+      <div><span class="dot" style="background:#2196f3"></span>Beta sheets</div>
+      <div><span class="dot" style="background:#ff9800"></span>Active site</div>`;
+  } else {
+    legend.innerHTML = `
+      <div><span class="dot" style="background:#e05c5c"></span>Mutation site</div>
+      <div><span class="dot" style="background:#f0a500"></span>Destabilized region</div>
+      <div><span class="dot" style="background:#9c27b0"></span>Disrupted binding</div>`;
+  }
 
-  function startAR() {
-    if (arStarted) return;
-    arStarted = true;
+  if (!pdbUrl) {
+    document.getElementById("status").textContent = "No PDB URL provided.";
+    return;
+  }
 
-    var splash = document.getElementById("splash");
-    splash.classList.add("fade-out");
-    setTimeout(function(){ splash.style.display = "none"; }, 500);
-
-    document.getElementById("arScene").classList.add("active");
-    document.getElementById("hud").classList.add("active");
-    document.getElementById("back-btn").classList.add("active");
-
-    // dev: show compact info panel, mutation badge, toggle button
-    document.getElementById("ui").classList.add("active");
-    document.getElementById("mut-badge").classList.add("active");
-    document.getElementById("toggle-marker").classList.add("active");
-
-    // Populate HUD and info panel with model data
-    document.getElementById("hud-gene").textContent    = model.gene;
-    document.getElementById("hud-protein").textContent = protein;
-    document.getElementById("hud-affinity").textContent = model.affinity;
-    document.getElementById("protein-title").textContent = model.label;
-    document.getElementById("protein-sub").textContent   = model.desc;
-    document.getElementById("mut-badge").textContent     = "Mutation: " + mut + "  Risk: " + risk;
-
-    // Build the 3D protein model into the scene
-    buildProteinModel();
-
-    // Marker events — update both HUD status (feat) and dev status bar
-    var marker = document.getElementById("marker");
-    marker.addEventListener("markerFound", function() {
-      document.getElementById("markerStatus").textContent = "Marker detected ✓";
-      document.getElementById("scan-hint").classList.add("hidden");
-      document.getElementById("gesture-hint").style.display = "block";
-      document.getElementById("marker-panel").style.display = "none";
-      document.getElementById("toggle-marker").textContent = "Show Marker";
+  // ── Create viewer ────────────────────────────────────────────
+  try {
+    var viewer = await molstar.Viewer.create("app", {
+      layoutIsExpanded:          false,
+      layoutShowControls:        false,
+      layoutShowRemoteState:     false,
+      layoutShowSequence:        false,
+      layoutShowLog:             false,
+      layoutShowLeftPanel:       false,
+      viewportShowExpand:        false,
+      viewportShowSelectionMode: false,
+      viewportShowAnimation:     false,
     });
-    marker.addEventListener("markerLost", function() {
-      document.getElementById("markerStatus").textContent = "Scanning for marker...";
-      document.getElementById("scan-hint").classList.remove("hidden");
-      document.getElementById("gesture-hint").style.display = "none";
-    });
-  }
 
-  // ── dev: build disease-specific 3D model into a-scene ────────
-  function el(tag, attrs) {
-    var e = document.createElement(tag);
-    Object.keys(attrs).forEach(function(k){ e.setAttribute(k, attrs[k]); });
-    return e;
-  }
+    // ── Load structure ────────────────────────────────────────
+    await viewer.loadStructureFromUrl(pdbUrl, "pdb", false);
+    document.getElementById("status").style.display = "none";
 
-  function buildProteinModel() {
-    var pivot = document.getElementById("protein-pivot");
-    var root  = document.getElementById("protein-root");
+    // ── After load: apply color theme (Doc 4) + focus mutation (Doc 3) ──
+    setTimeout(async function() {
 
-    var spinner = document.createElement("a-entity");
-    spinner.id = "spinner";
-    spinner.setAttribute("animation__spin",
-      "property:rotation; from:0 0 0; to:0 360 0; loop:true; dur:9000; easing:linear");
-
-    if (model.shape === "helix") {
-      spinner.appendChild(el("a-cylinder", {position:"-0.15 0 0",    radius:"0.07", height:"0.7",  color:model.color,  rotation:"15 0 10",  material:"roughness:0.3;metalness:0.2"}));
-      spinner.appendChild(el("a-cylinder", {position:"0.15 0.1 0.1", radius:"0.06", height:"0.55", color:model.color,  rotation:"-10 20 5", material:"roughness:0.3;metalness:0.2"}));
-      spinner.appendChild(el("a-box",      {position:"0 0.2 -0.2",   width:"0.35",  height:"0.06", depth:"0.15", color:"#0F6E56", rotation:"5 -15 0"}));
-      spinner.appendChild(el("a-box",      {position:"0.1 -0.1 0.2", width:"0.3",   height:"0.06", depth:"0.12", color:"#0F6E56", rotation:"-5 10 0"}));
-      spinner.appendChild(el("a-torus",    {position:"-0.05 0.35 0", radius:"0.12", "radius-tubular":"0.02", color:model.accent, rotation:"45 0 30"}));
-      ["-0.2 -0.35 0","-0.1 -0.2 0.1","0 -0.05 0.15","0.1 0.1 0.1","0.15 0.25 0","0 0.38 -0.1"].forEach(function(p){
-        spinner.appendChild(el("a-sphere",{position:p, radius:"0.04", color:model.accent}));
-      });
-    } else if (model.shape === "barrel") {
-      for (var i = 0; i < 8; i++) {
-        var a = (i/8)*Math.PI*2, x = Math.cos(a)*0.28, z = Math.sin(a)*0.28;
-        spinner.appendChild(el("a-cylinder",{position:x+" 0 "+z, radius:"0.045", height:"0.75", color:model.color}));
-      }
-      spinner.appendChild(el("a-sphere",{position:"0 0 0", radius:"0.12", color:model.accent}));
-      spinner.appendChild(el("a-box",{position:"0 0.42 0",  width:"0.6", height:"0.06", depth:"0.6", color:"#0C447C"}));
-      spinner.appendChild(el("a-box",{position:"0 -0.42 0", width:"0.6", height:"0.06", depth:"0.6", color:"#0C447C"}));
-    } else if (model.shape === "kinase") {
-      spinner.appendChild(el("a-cylinder",{position:"0 0.15 0",  radius:"0.22", height:"0.45", color:model.color}));
-      spinner.appendChild(el("a-cylinder",{position:"0 -0.2 0",  radius:"0.18", height:"0.35", color:"#BA7517"}));
-      spinner.appendChild(el("a-box",     {position:"0 -0.02 0", width:"0.45",  height:"0.06", depth:"0.3",  color:"#633806"}));
-      spinner.appendChild(el("a-torus",   {position:"0 0 0",     radius:"0.32", "radius-tubular":"0.02", color:model.accent, rotation:"90 0 0"}));
-      spinner.appendChild(el("a-sphere",  {position:"0.15 0 0.1",radius:"0.07", color:model.accent}));
-    } else if (model.shape === "bundle") {
-      [["-0.15 0 -0.15","0 0 -8"],["0.15 0 -0.15","0 0 8"],["0.15 0 0.15","0 0 -8"],["-0.15 0 0.15","0 0 8"]].forEach(function(d){
-        spinner.appendChild(el("a-cylinder",{position:d[0], radius:"0.055", height:"0.7", color:model.color, rotation:d[1]}));
-      });
-      spinner.appendChild(el("a-torus",{position:"0 0.35 0",  radius:"0.18","radius-tubular":"0.02",color:model.accent}));
-      spinner.appendChild(el("a-torus",{position:"0 -0.35 0", radius:"0.18","radius-tubular":"0.02",color:model.accent}));
-      spinner.appendChild(el("a-sphere",{position:"0 0 0", radius:"0.08", color:model.accent}));
-    }
-
-    // Mutation site (feat/mutation red sphere + dev label)
-    var mutSite = el("a-sphere",{
-      position:"-0.15 0.2 0.05", radius:"0.1", color:"#e05c5c",
-      material:"roughness:0.2;metalness:0.3;emissive:#440000;emissiveIntensity:0.5",
-      animation:"property:scale; from:1 1 1; to:1.5 1.5 1.5; loop:true; dur:800; direction:alternate; easing:easeInOutSine"
-    });
-    spinner.appendChild(mutSite);
-    spinner.appendChild(el("a-text",{value:"Mutation Site\n"+mut, position:"-0.15 0.44 0.05", align:"center", color:"#ffcccc", width:"1.2"}));
-
-    pivot.appendChild(spinner);
-
-    // Floating protein label (feat/mutation style)
-    var titleWrap = document.createElement("a-entity");
-    titleWrap.setAttribute("position","0 0.55 0");
-    titleWrap.setAttribute("animation","property:position; from:0 0.55 0; to:0 0.65 0; loop:true; dur:2500; direction:alternate; easing:easeInOutSine");
-    var labelPlane = el("a-plane",{width:"0.9", height:"0.22", color:"#111d13", opacity:"0.85", material:"transparent:true"});
-    var labelText  = el("a-text", {value:protein+" — MutaCure_001", align:"center", position:"0 0 0.01", color:"#6fcf7a", scale:"0.22 0.22 0.22"});
-    titleWrap.appendChild(labelPlane);
-    titleWrap.appendChild(labelText);
-    pivot.appendChild(titleWrap);
-
-    // Binding pocket (feat/mutation blue sphere)
-    pivot.appendChild(el("a-sphere",{position:"0.05 -0.05 0", radius:"0.22", color:"#5b9bd5", material:"opacity:0.12;transparent:true"}));
-
-    // Orbiting torus rings (feat/mutation)
-    pivot.appendChild(el("a-torus",{
-      position:"0 0 0", radius:"0.38", "radius-tubular":"0.008",
-      color:"#6fcf7a", opacity:"0.3", material:"transparent:true",
-      animation:"property:rotation; to:360 45 0; dur:6000; loop:true; easing:linear"
-    }));
-    pivot.appendChild(el("a-torus",{
-      position:"0 0 0", radius:"0.45", "radius-tubular":"0.006",
-      color:"#4caf50", opacity:"0.2", material:"transparent:true", rotation:"90 0 0",
-      animation:"property:rotation; from:90 0 0; to:90 360 0; dur:9000; loop:true; easing:linear"
-    }));
-
-    // Glow ring at ground level (dev)
-    var ring = el("a-torus",{
-      position:"0 0.01 0", rotation:"-90 0 0", radius:"0.7", "radius-tubular":"0.015",
-      color:model.color, material:"opacity:0.5;transparent:true",
-      animation:"property:rotation; from:-90 0 0; to:-90 360 0; loop:true; dur:10000; easing:linear"
-    });
-    root.appendChild(ring);
-  }
-
-  // ── feat/mutation: HUD controls ───────────────────────────────
-  function rotateProtein() {
-    var spinner = document.getElementById("spinner");
-    if (!spinner) return;
-    var cur = spinner.getAttribute("rotation") || {x:0,y:0,z:0};
-    spinner.setAttribute("rotation",{x:cur.x, y:(cur.y||0)+45, z:cur.z});
-  }
-
-  function toggleWireframe() {
-    wireframeMode = !wireframeMode;
-    var spinner = document.getElementById("spinner");
-    if (spinner) {
-      var spheres = spinner.querySelectorAll("a-sphere");
-      spheres.forEach(function(s){
-        s.setAttribute("material", "wireframe:" + wireframeMode);
-      });
-    }
-  }
-
-  function zoomIn() {
-    zoomLevel = zoomLevel >= 2 ? 1 : zoomLevel + 0.25;
-    var pivot = document.getElementById("protein-pivot");
-    if (pivot) pivot.setAttribute("scale", zoomLevel+" "+zoomLevel+" "+zoomLevel);
-  }
-
-  // ── dev: toggle on-screen marker panel ───────────────────────
-  function toggleMarker() {
-    var panel = document.getElementById("marker-panel");
-    var btn   = document.getElementById("toggle-marker");
-    if (panel.style.display === "none" || panel.style.display === "") {
-      panel.style.display = "block";
-      btn.textContent = "Hide Marker";
-    } else {
-      panel.style.display = "none";
-      btn.textContent = "Show Marker";
-    }
-  }
-
-  // ── dev: touch gestures (pinch-zoom + drag-rotate) ───────────
-  var scale = 1.0, rotY = 0, lastDist = null, lastX = null;
-  document.getElementById("arScene").addEventListener("loaded", function() {
-    var canvas = document.querySelector("canvas") || document.body;
-
-    canvas.addEventListener("touchstart", function(e) {
-      if (e.touches.length === 2)
-        lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      else if (e.touches.length === 1)
-        lastX = e.touches[0].clientX;
-    },{passive:true});
-
-    canvas.addEventListener("touchmove", function(e) {
-      if (e.touches.length === 2) {
-        var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        if (lastDist) {
-          scale = Math.max(0.4, Math.min(3.0, scale + (d - lastDist) * 0.005));
-          var pivot = document.getElementById("protein-pivot");
-          if (pivot) pivot.setAttribute("scale", scale+" "+scale+" "+scale);
+      // Color theme based on mode
+      try {
+        var plugin = viewer.plugin;
+        var structures = plugin.managers.structure.hierarchy.current.structures;
+        if (structures && structures.length > 0) {
+          var components = structures[0].components;
+          if (components && components.length > 0) {
+            if (isWildType) {
+              await plugin.managers.structure.component.updateRepresentationsTheme(
+                components, { color: "sequence-id" }
+              );
+            } else {
+              await plugin.managers.structure.component.updateRepresentationsTheme(
+                components, { color: "hydrophobicity" }
+              );
+            }
+          }
         }
-        lastDist = d;
-      } else if (e.touches.length === 1 && lastX !== null) {
-        rotY += (e.touches[0].clientX - lastX) * 0.5;
-        var spinner = document.getElementById("spinner");
-        if (spinner) {
-          spinner.removeAttribute("animation__spin");
-          spinner.setAttribute("rotation","0 "+rotY+" 0");
-        }
-        lastX = e.touches[0].clientX;
-        clearTimeout(window._spinTimer);
-        window._spinTimer = setTimeout(function(){
-          var sp = document.getElementById("spinner");
-          if (sp) sp.setAttribute("animation__spin",
-            "property:rotation; from:0 "+rotY+" 0; to:0 "+(rotY+360)+" 0; loop:true; dur:9000; easing:linear");
-        }, 2000);
+      } catch(e) {
+        console.log("Theme skipped:", e.message);
       }
-    },{passive:true});
 
-    canvas.addEventListener("touchend", function(){ lastDist = null; lastX = null; },{passive:true});
-  });
+      // Focus camera on mutation residue if provided (Doc 3)
+      if (mutPos > 0) {
+        try {
+          var Script = molstar.Script;
+          viewer.plugin.managers.structure.focus.setFromExpression(
+            Script.MolScript(`(sel.atom.res (= atom.auth_seq_id ${mutPos}))`)
+          );
+        } catch(e) {
+          console.log("Highlight skipped:", e.message);
+        }
+      }
+
+    }, 2500);
+
+  } catch(err) {
+    document.getElementById("status").textContent = "Error: " + err.message;
+    console.error(err);
+  }
+
+});
 </script>
-
 </body>
 </html>

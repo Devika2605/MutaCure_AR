@@ -10,7 +10,7 @@
   html, body { width:100%; height:100%; overflow:hidden; background:#080f09; }
   #app { width:100%; height:100%; }
 
-  /* feat/mutation: mode banner */
+  /* ── Wild-type / Mutated banner (from Doc 4) ── */
   #mode-banner {
     position:absolute; top:10px; left:50%;
     transform:translateX(-50%);
@@ -30,7 +30,18 @@
     color:#e05c5c;
   }
 
-  /* feat/mutation: legend */
+  /* ── Mutation info overlay (from Doc 3) ── */
+  #mut-info {
+    position:absolute; top:12px; left:12px;
+    background:rgba(224,92,92,0.12);
+    border:1px solid rgba(224,92,92,0.3);
+    border-radius:8px; padding:8px 12px;
+    font-family:monospace; font-size:11px;
+    color:#e8a0a0; max-width:260px; line-height:1.5;
+    pointer-events:none; z-index:100;
+  }
+
+  /* ── Dynamic legend (from Doc 4) ── */
   #legend {
     position:absolute; bottom:12px; left:12px;
     background:rgba(13,26,15,0.9);
@@ -44,18 +55,7 @@
   #legend div:last-child { margin-bottom:0; }
   .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
-  /* dev: mutation info panel */
-  #mut-info {
-    position:absolute; top:12px; left:12px;
-    background:rgba(224,92,92,0.12);
-    border:1px solid rgba(224,92,92,0.3);
-    border-radius:8px; padding:8px 12px;
-    font-family:monospace; font-size:11px;
-    color:#e8a0a0; max-width:260px; line-height:1.5;
-    pointer-events:none; z-index:100;
-  }
-
-  /* shared: loading status */
+  /* ── Status loader ── */
   #status {
     position:absolute; top:50%; left:50%;
     transform:translate(-50%,-50%);
@@ -69,61 +69,54 @@
 <body>
 
 <div id="app"></div>
-<div id="status">Loading<span style="animation:blink 1s step-start infinite;display:inline-block">...</span></div>
-
-<!-- feat/mutation: mode banner (wildtype / mutated label at top-centre) -->
+<div id="status">Loading structure<span style="animation:blink 1s step-start infinite;display:inline-block">...</span></div>
 <div id="mode-banner"></div>
-
-<!-- dev: mutation info panel (shown only in mutated mode when mutInfo is set) -->
 <div id="mut-info" style="display:none"></div>
-
-<!-- feat/mutation: per-mode legend (bottom-left) -->
 <div id="legend"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/molstar@3.45.0/build/viewer/molstar.js"></script>
 <script>
 window.addEventListener("load", async function() {
 
-  var params  = new URLSearchParams(window.location.search);
-  var pdbUrl  = params.get("pdb") || "";
-  var mutPos  = parseInt(params.get("mut") || "0");   // 1-based residue number (from dev)
-  var mutInfo = params.get("info") || "";
-
+  var params     = new URLSearchParams(window.location.search);
+  var pdbUrl     = params.get("pdb") || "";
+  var mutPos     = parseInt(params.get("mut") || "0");   // 1-based residue number (Doc 3)
+  var mutInfo    = params.get("info") || "";
   var isWildType = (mutInfo === "Wild+Type" || mutInfo === "Wild%20Type"
-                 || mutInfo === "Wild Type"  || mutInfo === "" || mutPos === 0);
+                 || mutInfo === "Wild Type"  || mutInfo === "");
 
-  // ── feat/mutation: mode banner ────────────────────────────────
+  // ── Mode banner (Doc 4) ──────────────────────────────────────
   var banner = document.getElementById("mode-banner");
   banner.textContent = isWildType ? "● WILD TYPE" : "● MUTATED";
   banner.className   = isWildType ? "wildtype"    : "mutated";
 
-  // ── feat/mutation: per-mode legend ───────────────────────────
-  var legend = document.getElementById("legend");
-  if (isWildType) {
-    legend.innerHTML =
-      '<div><span class="dot" style="background:#4caf50"></span>Stable backbone</div>' +
-      '<div><span class="dot" style="background:#2196f3"></span>Beta sheets</div>' +
-      '<div><span class="dot" style="background:#ff9800"></span>Active site</div>';
-  } else {
-    legend.innerHTML =
-      '<div><span class="dot" style="background:#e05c5c"></span>Mutation site</div>' +
-      '<div><span class="dot" style="background:#f0a500"></span>Destabilized region</div>' +
-      '<div><span class="dot" style="background:#9c27b0"></span>Disrupted binding</div>';
-  }
-
-  // ── dev: mutation info panel (shown in mutated mode) ─────────
-  if (!isWildType && mutInfo) {
+  // ── Mutation info overlay (Doc 3) ───────────────────────────
+  if (mutInfo && !isWildType) {
     var infoEl = document.getElementById("mut-info");
     infoEl.textContent = "Mutation: " + decodeURIComponent(mutInfo);
     infoEl.style.display = "block";
   }
 
+  // ── Dynamic legend (Doc 4) ───────────────────────────────────
+  var legend = document.getElementById("legend");
+  if (isWildType) {
+    legend.innerHTML = `
+      <div><span class="dot" style="background:#4caf50"></span>Stable backbone</div>
+      <div><span class="dot" style="background:#2196f3"></span>Beta sheets</div>
+      <div><span class="dot" style="background:#ff9800"></span>Active site</div>`;
+  } else {
+    legend.innerHTML = `
+      <div><span class="dot" style="background:#e05c5c"></span>Mutation site</div>
+      <div><span class="dot" style="background:#f0a500"></span>Destabilized region</div>
+      <div><span class="dot" style="background:#9c27b0"></span>Disrupted binding</div>`;
+  }
+
   if (!pdbUrl) {
-    document.getElementById("status").textContent = "No PDB URL.";
+    document.getElementById("status").textContent = "No PDB URL provided.";
     return;
   }
 
-  // ── Create Mol* viewer ────────────────────────────────────────
+  // ── Create viewer ────────────────────────────────────────────
   try {
     var viewer = await molstar.Viewer.create("app", {
       layoutIsExpanded:          false,
@@ -137,49 +130,48 @@ window.addEventListener("load", async function() {
       viewportShowAnimation:     false,
     });
 
+    // ── Load structure ────────────────────────────────────────
     await viewer.loadStructureFromUrl(pdbUrl, "pdb", false);
     document.getElementById("status").style.display = "none";
 
-    // ── feat/mutation: apply per-mode colour theme ────────────
+    // ── After load: apply color theme (Doc 4) + focus mutation (Doc 3) ──
     setTimeout(async function() {
+
+      // Color theme based on mode
       try {
-        var plugin     = viewer.plugin;
+        var plugin = viewer.plugin;
         var structures = plugin.managers.structure.hierarchy.current.structures;
-        if (!structures || structures.length === 0) return;
-
-        var components = structures[0].components;
-        if (!components || components.length === 0) return;
-
-        if (isWildType) {
-          // Green gradient — sequence-id gives clean greens
-          await plugin.managers.structure.component.updateRepresentationsTheme(
-            components,
-            { color: "sequence-id" }
-          );
-        } else {
-          // Red/orange — hydrophobicity gives warm tones matching mutation legend
-          await plugin.managers.structure.component.updateRepresentationsTheme(
-            components,
-            { color: "hydrophobicity" }
-          );
+        if (structures && structures.length > 0) {
+          var components = structures[0].components;
+          if (components && components.length > 0) {
+            if (isWildType) {
+              await plugin.managers.structure.component.updateRepresentationsTheme(
+                components, { color: "sequence-id" }
+              );
+            } else {
+              await plugin.managers.structure.component.updateRepresentationsTheme(
+                components, { color: "hydrophobicity" }
+              );
+            }
+          }
         }
       } catch(e) {
         console.log("Theme skipped:", e.message);
       }
-    }, 2500);
 
-    // ── dev: highlight mutation residue by 1-based sequence position ──
-    if (!isWildType && mutPos > 0) {
-      setTimeout(function() {
+      // Focus camera on mutation residue if provided (Doc 3)
+      if (mutPos > 0) {
         try {
+          var Script = molstar.Script;
           viewer.plugin.managers.structure.focus.setFromExpression(
-            molstar.Script.MolScript("(sel.atom.res (= atom.auth_seq_id " + mutPos + "))")
+            Script.MolScript(`(sel.atom.res (= atom.auth_seq_id ${mutPos}))`)
           );
         } catch(e) {
-          console.log("Residue highlight skipped:", e.message);
+          console.log("Highlight skipped:", e.message);
         }
-      }, 1500);
-    }
+      }
+
+    }, 2500);
 
   } catch(err) {
     document.getElementById("status").textContent = "Error: " + err.message;
