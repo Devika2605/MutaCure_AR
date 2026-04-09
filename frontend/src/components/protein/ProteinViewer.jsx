@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./ProteinViewer.module.css";
+import ARLaunchPanel from "./ARLaunchPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -56,18 +57,10 @@ export default function ProteinViewer({ mutationData }) {
 
   useEffect(() => {
   if (phase !== "done" || !result?.pdb_url || !molRef.current) return;
- 
+
   const pdbUrl = `${API_BASE}${result.pdb_url}`;
-  
-  // Pass mutation position (1-based) and info to viewer
-  const mutPos = result.mutated_positions?.[0] != null 
-    ? result.mutated_positions[0] + 1  // convert 0-based to 1-based
-    : 0;
-  const mutInfo = encodeURIComponent(result.mutation_info || "");
- 
-  molRef.current.src = `/ar/viewer.html?pdb=${encodeURIComponent(pdbUrl)}&mut=${mutPos}&info=${mutInfo}`;
+  molRef.current.src = `/ar/viewer.html?pdb=${encodeURIComponent(pdbUrl)}`;
 }, [phase, result]);
- 
   const affinityScore = result ? (-7.2 - Math.random() * 3).toFixed(1) : null;
 
   return (
@@ -216,7 +209,12 @@ export default function ProteinViewer({ mutationData }) {
               <span>{error}</span>
             </div>
           )}
+           {/* AR Launch Panel — INSIDE sidebar, after error card */}
+        {phase === "done" && result && (
+          <ARLaunchPanel result={result} selectedDisease={selectedDisease} />
+        )}
         </div>
+        
 
         {/* Right panel — 3D Viewer */}
         <div className={styles.viewerPanel}>
