@@ -423,7 +423,7 @@ export default function MutationDashboard() {
                 style={{ ...styles.runBtn, ...(!canRun ? styles.runBtnDisabled : {}) }}
               >
                 {loading
-                  ? <span style={{ display:"inline-block", animation:"spin 1s linear infinite" }}>⟳ Analyzing...</span>
+                  ? <span style={{ display:"inline-block"}}>⟳ Analyzing...</span>
                   : "▶ Run Mutation Analysis"
                 }
               </button>
