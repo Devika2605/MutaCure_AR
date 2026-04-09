@@ -1,0 +1,116 @@
+.panel {
+  background: #111d13;
+  border: 1px solid rgba(74,163,84,0.2);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-top: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(74,163,84,0.12);
+  background: rgba(74,163,84,0.06);
+}
+
+.icon { color: #6fcf7a; display: flex; }
+
+.title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e8f0e8;
+}
+
+.body {
+  display: flex;
+  gap: 0;
+  padding: 18px;
+  align-items: flex-start;
+}
+
+.step {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.stepNum {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(74,163,84,0.2);
+  border: 1px solid rgba(74,163,84,0.4);
+  color: #6fcf7a;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.stepContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stepLabel {
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  color: #e8f0e8;
+  font-weight: 500;
+  margin: 0;
+}
+
+.stepSub {
+  font-size: 10px;
+  color: rgba(232,240,232,0.35);
+  font-family: 'DM Mono', monospace;
+  margin: 0;
+}
+
+.qrWrap {
+  background: #0d1a0f;
+  border: 1px solid rgba(74,163,84,0.2);
+  border-radius: 8px;
+  padding: 8px;
+  display: inline-block;
+}
+
+.qrWrap canvas, .qrWrap img {
+  display: block;
+  border-radius: 4px;
+}
+
+.markerWrap {
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px;
+  display: inline-block;
+}
+
+.markerImg {
+  display: block;
+  border-radius: 4px;
+}
+
+.divider {
+  width: 1px;
+  background: rgba(74,163,84,0.12);
+  margin: 0 20px;
+  align-self: stretch;
+}
+
+.mutInfo {
+  padding: 10px 18px;
+  border-top: 1px solid rgba(74,163,84,0.1);
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: rgba(232,240,232,0.4);
+  line-height: 1.5;
+}

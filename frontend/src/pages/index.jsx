@@ -395,8 +395,8 @@ export default function MutationDashboard() {
                 {/* Show if this gene has real sequence data */}
                 {customGene && (
                   <p style={{ fontSize:10, marginTop:10, fontFamily:"'DM Mono',monospace",
-                    color: GENE_SEQUENCES[customGene] ? "#6fcf7a" : "#f0a500" }}>
-                    {GENE_SEQUENCES[customGene]
+                    color: GENE_SEQUENCES[customGene?.toUpperCase()] ? "#6fcf7a" : "#f0a500" }}>
+                    {GENE_SEQUENCES[customGene?.toUpperCase()]
                       ? `✓ Real ${customGene} sequence available`
                       : `⚠ Generic sequence will be used for ${customGene}`}
                   </p>

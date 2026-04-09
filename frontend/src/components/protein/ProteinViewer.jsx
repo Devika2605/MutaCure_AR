@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./ProteinViewer.module.css";
+import ARLaunchPanel from "./ARLaunchPanel"; // kept from Doc 5
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const DISEASE_OPTIONS = [
-  { label: "Type 2 Diabetes", gene: "TCF7L2", variant: "rs7903146",   target: "PPARG", risk: 0.87 },
-  { label: "Breast Cancer",   gene: "BRCA1",  variant: "rs80357906",  target: "BRCA1", risk: 0.79 },
-  { label: "Lung Cancer",     gene: "EGFR",   variant: "rs121434568", target: "EGFR",  risk: 0.74 },
-  { label: "Alzheimer's",     gene: "APOE",   variant: "rs429358",    target: "APOE",  risk: 0.62 },
+  { label: "Type 2 Diabetes",    gene: "TCF7L2", variant: "rs7903146",   target: "PPARG", risk: 0.87 },
+  { label: "Breast Cancer",      gene: "BRCA1",  variant: "rs80357906",  target: "BRCA1", risk: 0.79 },
+  { label: "Lung Cancer",        gene: "EGFR",   variant: "rs121434568", target: "EGFR",  risk: 0.74 },
+  { label: "Alzheimer's Disease",gene: "APOE",   variant: "rs429358",    target: "APOE",  risk: 0.62 },
 ];
 
 // ── Read URL params ONCE outside the component (safe — runs at module load) ──
@@ -44,20 +45,19 @@ function getInitialDisease() {
   return DISEASE_OPTIONS[0];
 }
 
-export default function ProteinViewer() {
-  // ── State — initial disease set from URL immediately, no flash ──
+// ── Component — accepts optional mutationData prop (Doc 5 compat) ──
+export default function ProteinViewer({ mutationData }) {
   const [phase,           setPhase]           = useState("idle");
   const [result,          setResult]          = useState(null);
   const [error,           setError]           = useState(null);
   const [selectedDisease, setSelectedDisease] = useState(getInitialDisease);
   const [log,             setLog]             = useState([]);
-  const [viewMode,        setViewMode]        = useState("wildtype");
+  const [viewMode,        setViewMode]        = useState("wildtype"); // wildtype | mutated | compare
   const [wildtypeUrl,     setWildtypeUrl]     = useState("");
   const [mutatedUrl,      setMutatedUrl]      = useState("");
 
-  // ── Refs ──
   const molRef        = useRef(null);
-  const autoTriggered = useRef(false);   // ← single declaration, right here
+  const autoTriggered = useRef(false);
 
   const addLog = (msg) => setLog((prev) => [...prev, { time: Date.now(), msg }]);
 
@@ -97,20 +97,17 @@ export default function ProteinViewer() {
     }
   }, [selectedDisease]);
 
-  // ── Auto-generate if we arrived from the mutation dashboard ──
-  // selectedDisease is already set correctly from getInitialDisease(),
-  // so we just need to fire once when generateProtein is ready.
+  // ── Auto-generate if arriving from mutation dashboard (Doc 6) ──
   useEffect(() => {
     const { target } = getUrlParams();
-    if (!target) return;                  // not coming from mutation page
-    if (autoTriggered.current) return;    // already fired
+    if (!target) return;
+    if (autoTriggered.current) return;
     autoTriggered.current = true;
-
     const timer = setTimeout(() => generateProtein(), 300);
     return () => clearTimeout(timer);
-  }, [generateProtein]); // generateProtein stabilizes after first render
+  }, [generateProtein]);
 
-  // ── Set viewer URLs when result is ready ─────────────────────
+  // ── Set viewer URLs when result is ready (Doc 6 enhanced) ────
   useEffect(() => {
     if (phase !== "done" || !result?.pdb_url || !molRef.current) return;
 
@@ -127,7 +124,7 @@ export default function ProteinViewer() {
     molRef.current.src = wtUrl;
   }, [phase, result]);
 
-  // ── Switch single-pane iframe on toggle ──────────────────────
+  // ── Switch view (Doc 6) ───────────────────────────────────────
   const switchView = (mode) => {
     setViewMode(mode);
     if (mode === "wildtype" && molRef.current) molRef.current.src = wildtypeUrl;
@@ -290,12 +287,17 @@ export default function ProteinViewer() {
               <span>{error}</span>
             </div>
           )}
+
+          {/* AR Launch Panel — from Doc 5, inside sidebar after error card */}
+          {phase === "done" && result && (
+            <ARLaunchPanel result={result} selectedDisease={selectedDisease} />
+          )}
         </div>
 
         {/* ── Right: 3D Viewer ── */}
         <div className={styles.viewerPanel}>
 
-          {/* Viewer header + toggle */}
+          {/* Viewer header + Wild Type / Mutated / Compare toggle (Doc 6) */}
           <div className={styles.viewerHeader}>
             <span className={styles.viewerTitle}>3D Protein Structure</span>
             {phase === "done" && (
@@ -349,6 +351,7 @@ export default function ProteinViewer() {
               </div>
             )}
 
+            {/* Single-pane iframe for wildtype / mutated modes */}
             {phase === "done" && result && viewMode !== "compare" && (
               <iframe
                 ref={molRef}
@@ -358,6 +361,7 @@ export default function ProteinViewer() {
               />
             )}
 
+            {/* Split-pane compare mode (Doc 6) */}
             {phase === "done" && result && viewMode === "compare" && (
               <div style={toggleStyles.compareWrap}>
                 <div style={toggleStyles.pane}>
@@ -386,6 +390,7 @@ export default function ProteinViewer() {
               </div>
             )}
 
+            {/* Legend — hidden in compare mode (already labelled in pane headers) */}
             {phase === "done" && viewMode !== "compare" && (
               <div className={styles.legend}>
                 <div className={styles.legendItem}>
@@ -423,7 +428,7 @@ export default function ProteinViewer() {
   );
 }
 
-// ── Toggle + Compare styles ───────────────────────────────────
+// ── Toggle + Compare inline styles (Doc 6) ────────────────────
 const toggleStyles = {
   group: {
     display: "flex", gap: 3,
