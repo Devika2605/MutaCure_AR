@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>MutaCure AR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; overflow:hidden; font-family:monospace; }
+  #ui {
+    position:fixed; top:12px; left:12px; z-index:999;
+    background:rgba(13,26,15,0.88); border:1px solid rgba(74,163,84,0.35);
+    border-radius:10px; padding:10px 14px; color:#e8f0e8; max-width:200px;
+  }
+  #ui h2 { font-size:13px; color:#6fcf7a; margin-bottom:3px; }
+  #ui p  { font-size:10px; color:rgba(232,240,232,0.5); line-height:1.4; }
+  #status {
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:rgba(13,26,15,0.92); border:1px solid rgba(74,163,84,0.3);
+    border-radius:20px; padding:8px 20px;
+    color:rgba(232,240,232,0.5); font-size:11px; z-index:999;
+    transition:all 0.3s ease; white-space:nowrap;
+  }
+  #mut-badge {
+    position:fixed; top:12px; right:12px; z-index:999;
+    background:rgba(224,92,92,0.15); border:1px solid rgba(224,92,92,0.35);
+    border-radius:8px; padding:8px 12px;
+    color:#e8a0a0; font-size:10px; max-width:170px; line-height:1.4;
+  }
+  #marker-panel {
+    position:fixed; bottom:70px; left:50%; transform:translateX(-50%);
+    z-index:999; background:rgba(13,26,15,0.92);
+    border:1px solid rgba(74,163,84,0.3); border-radius:12px;
+    padding:10px; text-align:center; display:none;
+  }
+  #marker-panel p { font-size:10px; color:#6fcf7a; margin-bottom:6px; }
+  #marker-panel img { width:120px; height:120px; border-radius:6px; }
+  #toggle-marker {
+    position:fixed; bottom:60px; right:12px; z-index:999;
+    background:rgba(13,26,15,0.92); border:1px solid rgba(74,163,84,0.3);
+    border-radius:8px; padding:7px 12px;
+    color:#6fcf7a; font-size:11px; cursor:pointer;
+  }
+  #gesture-hint {
+    position:fixed; bottom:56px; left:12px;
+    background:rgba(13,26,15,0.7); border-radius:16px; padding:5px 12px;
+    color:rgba(232,240,232,0.35); font-size:10px; z-index:999;
+    pointer-events:none; display:none;
+  }
+  a-scene { width:100vw; height:100vh; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+</head>
+<body>
+
+<div id="ui">
+  <h2 id="protein-title">MutaCure AR</h2>
+  <p id="protein-sub">Point camera at marker</p>
+</div>
+<div id="status">Initializing camera...</div>
+<div id="mut-badge"></div>
+<div id="gesture-hint">Pinch to zoom · Drag to rotate</div>
+
+<!-- Marker shown on screen for phone to scan -->
+<div id="marker-panel">
+  <p>Point camera here</p>
+  <img src="https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg" alt="Hiro marker"/>
+</div>
+
+<!-- Toggle button -->
+<button id="toggle-marker" onclick="toggleMarker()">Show Marker</button>
+
+<a-scene
+  embedded
+  arjs="sourceType:webcam; debugUIEnabled:false; detectionMode:mono_and_matrix; matrixCodeType:3x3;"
+  vr-mode-ui="enabled:false"
+  renderer="logarithmicDepthBuffer:true; antialias:true"
+  id="arscene">
+
+  <a-marker preset="hiro" id="marker">
+    <a-entity id="protein-root" position="0 0 0">
+      <a-entity id="protein-pivot" position="0 0.8 0">
+      </a-entity>
+    </a-entity>
+  </a-marker>
+
+  <a-entity camera></a-entity>
+</a-scene>
+
+<script>
+var params  = new URLSearchParams(window.location.search);
+var disease = params.get("disease") || "Type 2 Diabetes";
+var protein = params.get("protein") || "PPARG";
+var mut     = params.get("mut")     || "P115Q";
+var risk    = params.get("risk")    || "0.87";
+
+var MODELS = {
+  "Type 2 Diabetes":    { color:"#1D9E75", accent:"#5DCAA5", shape:"helix",  label:"PPARG / T2D",           desc:"Nuclear receptor — metabolic regulation" },
+  "Breast Cancer":      { color:"#5b9bd5", accent:"#85B7EB", shape:"barrel", label:"BRCA1 / Breast Cancer",  desc:"DNA repair tumor suppressor" },
+  "Lung Cancer":        { color:"#EF9F27", accent:"#FAC775", shape:"kinase", label:"EGFR / Lung Cancer",     desc:"Receptor tyrosine kinase" },
+  "Alzheimer's Disease":{ color:"#9F77DD", accent:"#AFA9EC", shape:"bundle", label:"APOE / Alzheimers",      desc:"Lipid transport — APOE4 risk variant" }
+};
+var model = MODELS[disease] || MODELS["Type 2 Diabetes"];
+
+document.getElementById("protein-title").textContent = model.label;
+document.getElementById("protein-sub").textContent   = model.desc;
+document.getElementById("mut-badge").textContent     = "Mutation: " + mut + "  Risk: " + risk;
+
+var pivot = document.getElementById("protein-pivot");
+
+function el(tag, attrs) {
+  var e = document.createElement(tag);
+  Object.keys(attrs).forEach(function(k){ e.setAttribute(k, attrs[k]); });
+  return e;
+}
+
+var spinner = document.createElement("a-entity");
+spinner.id = "spinner";
+spinner.setAttribute("animation__spin", "property:rotation; from:0 0 0; to:0 360 0; loop:true; dur:9000; easing:linear");
+
+if (model.shape === "helix") {
+  spinner.appendChild(el("a-cylinder", {position:"-0.15 0 0",    radius:"0.07", height:"0.7",  color:model.color,  rotation:"15 0 10",  material:"roughness:0.3;metalness:0.2"}));
+  spinner.appendChild(el("a-cylinder", {position:"0.15 0.1 0.1", radius:"0.06", height:"0.55", color:model.color,  rotation:"-10 20 5", material:"roughness:0.3;metalness:0.2"}));
+  spinner.appendChild(el("a-box",      {position:"0 0.2 -0.2",   width:"0.35",  height:"0.06", depth:"0.15", color:"#0F6E56", rotation:"5 -15 0"}));
+  spinner.appendChild(el("a-box",      {position:"0.1 -0.1 0.2", width:"0.3",   height:"0.06", depth:"0.12", color:"#0F6E56", rotation:"-5 10 0"}));
+  spinner.appendChild(el("a-torus",    {position:"-0.05 0.35 0", radius:"0.12", "radius-tubular":"0.02", color:model.accent, rotation:"45 0 30"}));
+  ["-0.2 -0.35 0","-0.1 -0.2 0.1","0 -0.05 0.15","0.1 0.1 0.1","0.15 0.25 0","0 0.38 -0.1"].forEach(function(p){
+    spinner.appendChild(el("a-sphere",{position:p, radius:"0.04", color:model.accent}));
+  });
+} else if (model.shape === "barrel") {
+  for (var i=0;i<8;i++){
+    var a=(i/8)*Math.PI*2, x=Math.cos(a)*0.28, z=Math.sin(a)*0.28;
+    spinner.appendChild(el("a-cylinder",{position:x+" 0 "+z, radius:"0.045", height:"0.75", color:model.color}));
+  }
+  spinner.appendChild(el("a-sphere",{position:"0 0 0", radius:"0.12", color:model.accent}));
+  spinner.appendChild(el("a-box",{position:"0 0.42 0", width:"0.6", height:"0.06", depth:"0.6", color:"#0C447C"}));
+  spinner.appendChild(el("a-box",{position:"0 -0.42 0", width:"0.6", height:"0.06", depth:"0.6", color:"#0C447C"}));
+} else if (model.shape === "kinase") {
+  spinner.appendChild(el("a-cylinder",{position:"0 0.15 0",  radius:"0.22", height:"0.45", color:model.color}));
+  spinner.appendChild(el("a-cylinder",{position:"0 -0.2 0",  radius:"0.18", height:"0.35", color:"#BA7517"}));
+  spinner.appendChild(el("a-box",     {position:"0 -0.02 0", width:"0.45",  height:"0.06", depth:"0.3",  color:"#633806"}));
+  spinner.appendChild(el("a-torus",   {position:"0 0 0",     radius:"0.32", "radius-tubular":"0.02", color:model.accent, rotation:"90 0 0"}));
+  spinner.appendChild(el("a-sphere",  {position:"0.15 0 0.1",radius:"0.07", color:model.accent}));
+} else if (model.shape === "bundle") {
+  [["-0.15 0 -0.15","0 0 -8"],["0.15 0 -0.15","0 0 8"],["0.15 0 0.15","0 0 -8"],["-0.15 0 0.15","0 0 8"]].forEach(function(d){
+    spinner.appendChild(el("a-cylinder",{position:d[0], radius:"0.055", height:"0.7", color:model.color, rotation:d[1]}));
+  });
+  spinner.appendChild(el("a-torus",{position:"0 0.35 0",  radius:"0.18","radius-tubular":"0.02",color:model.accent}));
+  spinner.appendChild(el("a-torus",{position:"0 -0.35 0", radius:"0.18","radius-tubular":"0.02",color:model.accent}));
+  spinner.appendChild(el("a-sphere",{position:"0 0 0", radius:"0.08", color:model.accent}));
+}
+
+// Mutation site
+var mutSite = el("a-sphere",{position:"-0.15 0.2 0.05", radius:"0.1", color:"#e05c5c",
+  material:"roughness:0.2;metalness:0.3;emissive:#440000;emissiveIntensity:0.5",
+  animation:"property:scale; from:1 1 1; to:1.5 1.5 1.5; loop:true; dur:800; direction:alternate; easing:easeInOutSine"});
+spinner.appendChild(mutSite);
+spinner.appendChild(el("a-text",{value:mut, position:"-0.15 0.44 0.05", align:"center", color:"#e05c5c", width:"1.2"}));
+pivot.appendChild(spinner);
+
+// Floating title
+var titleWrap = document.createElement("a-entity");
+titleWrap.setAttribute("position","0 1.8 0");
+titleWrap.setAttribute("animation","property:position; from:0 1.8 0; to:0 1.95 0; loop:true; dur:2500; direction:alternate; easing:easeInOutSine");
+titleWrap.appendChild(el("a-text",{value:protein+" Mutant\n"+disease, align:"center", color:model.color, width:"2.5"}));
+pivot.appendChild(titleWrap);
+
+// Binding pocket
+pivot.appendChild(el("a-sphere",{position:"0.05 -0.05 0", radius:"0.22", color:"#5b9bd5", material:"opacity:0.12;transparent:true"}));
+
+// Glow ring
+var ring = el("a-torus",{position:"0 0.01 0", rotation:"-90 0 0", radius:"0.7", "radius-tubular":"0.015", color:model.color,
+  material:"opacity:0.5;transparent:true",
+  animation:"property:rotation; from:-90 0 0; to:-90 360 0; loop:true; dur:10000; easing:linear"});
+document.getElementById("protein-root").appendChild(ring);
+
+// Marker events
+var marker = document.getElementById("marker");
+var status = document.getElementById("status");
+marker.addEventListener("markerFound", function(){
+  status.textContent = "Marker detected — "+protein+" active";
+  status.style.borderColor="rgba(74,163,84,0.6)"; status.style.color="#6fcf7a";
+  document.getElementById("gesture-hint").style.display="block";
+  document.getElementById("marker-panel").style.display="none";
+  document.getElementById("toggle-marker").textContent="Show Marker";
+});
+marker.addEventListener("markerLost", function(){
+  status.textContent = "Point camera at the Hiro marker";
+  status.style.borderColor="rgba(74,163,84,0.3)"; status.style.color="rgba(232,240,232,0.5)";
+  document.getElementById("gesture-hint").style.display="none";
+});
+document.getElementById("arscene").addEventListener("loaded", function(){
+  status.textContent = "Point camera at the Hiro marker";
+});
+
+// Toggle marker panel
+function toggleMarker() {
+  var panel = document.getElementById("marker-panel");
+  var btn   = document.getElementById("toggle-marker");
+  if (panel.style.display === "none" || panel.style.display === "") {
+    panel.style.display = "block";
+    btn.textContent = "Hide Marker";
+  } else {
+    panel.style.display = "none";
+    btn.textContent = "Show Marker";
+  }
+}
+
+// Touch gestures — wrapped in scene loaded to ensure canvas exists
+var scale = 1.0, rotY = 0, lastDist = null, lastX = null;
+document.getElementById("arscene").addEventListener("loaded", function(){
+  var canvas = document.querySelector("canvas") || document.body;
+
+  canvas.addEventListener("touchstart", function(e){
+    if (e.touches.length===2) lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    else if (e.touches.length===1) lastX = e.touches[0].clientX;
+  },{passive:true});
+
+  canvas.addEventListener("touchmove", function(e){
+    if (e.touches.length===2) {
+      var d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      if (lastDist) { scale = Math.max(0.4, Math.min(3.0, scale+(d-lastDist)*0.005)); pivot.setAttribute("scale",scale+" "+scale+" "+scale); }
+      lastDist = d;
+    } else if (e.touches.length===1 && lastX!==null) {
+      rotY += (e.touches[0].clientX - lastX)*0.5;
+      spinner.removeAttribute("animation__spin");
+      spinner.setAttribute("rotation","0 "+rotY+" 0");
+      lastX = e.touches[0].clientX;
+      clearTimeout(window._st);
+      window._st = setTimeout(function(){
+        spinner.setAttribute("animation__spin","property:rotation; from:0 "+rotY+" 0; to:0 "+(rotY+360)+" 0; loop:true; dur:9000; easing:linear");
+      },2000);
+    }
+  },{passive:true});
+
+  canvas.addEventListener("touchend", function(){ lastDist=null; lastX=null; },{passive:true});
+});
+</script>
+</body>
+</html>
