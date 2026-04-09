@@ -1,3 +1,6 @@
 transformers>=4.35
 torch
 httpx
+fastapi
+uvicorn
+python-multipart
