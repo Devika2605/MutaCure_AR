@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./ProteinViewer.module.css";
+import ARLaunchPanel from "./ARLaunchPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -26,11 +27,9 @@ function getInitialDisease() {
   const { target, gene, variant, risk } = getUrlParams();
   if (!target) return DISEASE_OPTIONS[0];
 
-  // Try to match a preset
   const match = DISEASE_OPTIONS.find(d => d.target === target || d.gene === gene);
   if (match) return match;
 
-  // Custom gene from mutation dashboard
   if (gene && target) {
     return {
       label:   `${gene} (Custom)`,
@@ -45,7 +44,6 @@ function getInitialDisease() {
 }
 
 export default function ProteinViewer() {
-  // ── State — initial disease set from URL immediately, no flash ──
   const [phase,           setPhase]           = useState("idle");
   const [result,          setResult]          = useState(null);
   const [error,           setError]           = useState(null);
@@ -55,9 +53,8 @@ export default function ProteinViewer() {
   const [wildtypeUrl,     setWildtypeUrl]     = useState("");
   const [mutatedUrl,      setMutatedUrl]      = useState("");
 
-  // ── Refs ──
   const molRef        = useRef(null);
-  const autoTriggered = useRef(false);   // ← single declaration, right here
+  const autoTriggered = useRef(false);
 
   const addLog = (msg) => setLog((prev) => [...prev, { time: Date.now(), msg }]);
 
@@ -98,19 +95,22 @@ export default function ProteinViewer() {
   }, [selectedDisease]);
 
   // ── Auto-generate if we arrived from the mutation dashboard ──
-  // selectedDisease is already set correctly from getInitialDisease(),
-  // so we just need to fire once when generateProtein is ready.
   useEffect(() => {
     const { target } = getUrlParams();
-    if (!target) return;                  // not coming from mutation page
-    if (autoTriggered.current) return;    // already fired
+    if (!target) return;
+    if (autoTriggered.current) return;
     autoTriggered.current = true;
 
     const timer = setTimeout(() => generateProtein(), 300);
     return () => clearTimeout(timer);
-  }, [generateProtein]); // generateProtein stabilizes after first render
+  }, [generateProtein]);
 
   // ── Set viewer URLs when result is ready ─────────────────────
+  // MERGED: feat/mutation builds dual wildtype/mutated URLs with mut & info params
+  //         (powers the toggle + compare feature).
+  //         dev set a simple single src on the iframe — that behaviour is preserved:
+  //         molRef.current.src = wtUrl gives the same initial load dev intended,
+  //         and the dual URLs are also stored for the toggle/compare buttons.
   useEffect(() => {
     if (phase !== "done" || !result?.pdb_url || !molRef.current) return;
 
@@ -289,6 +289,11 @@ export default function ProteinViewer() {
               <span className={styles.errorIcon}>⚠</span>
               <span>{error}</span>
             </div>
+          )}
+
+          {/* AR Launch Panel — INSIDE sidebar, after error card */}
+          {phase === "done" && result && (
+            <ARLaunchPanel result={result} selectedDisease={selectedDisease} />
           )}
         </div>
 
