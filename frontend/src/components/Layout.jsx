@@ -9,10 +9,11 @@ const NAV = [
   { path: "/ar",       label: "AR Viewer",         icon: "ar"      },
   { path: "/insights", label: "Therapy Insights",  icon: "bulb"    },
   { path: "/history",  label: "History",           icon: "history" },
+  { path: "/settings", label: "Settings",          icon: "settings"},
 ];
 
 function NavIcon({ name }) {
-  const p = { width: 18, height: 18, flexShrink: 0 };
+  const p = { width: 18, height: 18, style: { flexShrink: 0 } };
   switch (name) {
     case "grid":    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>;
     case "dna":     return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8 3c0 4 8 4 8 8s-8 4-8 8M16 3c0 4-8 4-8 8s8 4 8 8M5 6h14M5 18h14" strokeLinecap="round"/></svg>;
@@ -25,16 +26,20 @@ function NavIcon({ name }) {
   }
 }
 
-export default function Layout({ children, pageTitle = "Home" }) {
+export default function Layout({ children }) {
   const router = useRouter();
   const path = router.pathname;
+
+  // Derive title from current path to prevent Hydration mismatch
+  const activeNav = NAV.find(item => item.path === path);
+  const displayTitle = activeNav ? activeNav.label : "Home";
 
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <div className={styles.sidebarBg} />
         <div className={styles.sidebarInner}>
-          <div className={styles.logo} onClick={() => router.push("/")}>
+          <div className={styles.logo} style={{ cursor: 'pointer' }} onClick={() => router.push("/")}>
             <div className={styles.logoMark}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
@@ -45,7 +50,7 @@ export default function Layout({ children, pageTitle = "Home" }) {
           </div>
 
           <nav className={styles.nav}>
-            {NAV.map(item => (
+            {NAV.filter(item => item.path !== "/settings").map(item => (
               <button key={item.path}
                 className={`${styles.navItem} ${path === item.path ? styles.navActive : ""}`}
                 onClick={() => router.push(item.path)}
@@ -70,7 +75,7 @@ export default function Layout({ children, pageTitle = "Home" }) {
 
       <div className={styles.main}>
         <header className={styles.topbar}>
-          <h1 className={styles.pageTitle}>{pageTitle}</h1>
+          <h1 className={styles.pageTitle}>{displayTitle}</h1>
           <div className={styles.topbarRight}>
             <button className={styles.bellBtn} title="Notifications">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5a7a5a" strokeWidth="1.8">
