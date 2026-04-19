@@ -3,7 +3,7 @@
 .shell {
   display: flex;
   height: 100vh;
-  background: #f5f7f5;
+  background: #f4f6f4;
   font-family: 'DM Sans', 'Segoe UI', sans-serif;
   color: #1a2e1a;
   overflow: hidden;
@@ -11,108 +11,210 @@
 
 /* ── Sidebar ── */
 .sidebar {
-  width: 210px;
-  min-width: 210px;
-  background: #1c3a1e;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  width: 228px;
+  min-width: 228px;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
 
-.sidebarLogo {
+/* DNA helix background — dark green gradient with faint helix art */
+.sidebarBg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #1b3a20 0%, #142d18 60%, #0f2212 100%);
+  z-index: 0;
+}
+
+/* Helix pattern via pseudo — a repeating SVG-style radial gradient */
+.sidebarBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse 60px 120px at 30% 25%, rgba(74,163,84,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60px 120px at 70% 55%, rgba(74,163,84,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40px 80px at 25% 70%, rgba(74,163,84,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 50px 100px at 75% 85%, rgba(74,163,84,0.07) 0%, transparent 70%);
+  z-index: 0;
+}
+
+.sidebarInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+}
+
+/* Logo */
+.logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 22px 20px 18px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding: 20px 20px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 8px;
 }
 
-.logoIcon {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: #2d6a31;
+.logoMark {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #2d7a31, #4caf50);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(74,163,84,0.3);
 }
 
-.logoText { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
-.logoText span { color: #6fcf7a; }
+.logoText {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: -0.01em;
+}
+.logoText strong { font-weight: 700; }
 
-.navSection {
-  flex: 1; padding: 16px 12px;
-  display: flex; flex-direction: column; gap: 2px;
+/* Nav */
+.nav {
+  flex: 1;
+  padding: 4px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   overflow-y: auto;
 }
 
 .navItem {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 10px; border-radius: 8px;
-  color: rgba(255,255,255,0.45); font-size: 13px; font-weight: 500;
-  cursor: pointer; transition: all 0.15s;
-  background: transparent; border: none; width: 100%;
-  text-align: left; text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.5);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
   font-family: 'DM Sans', sans-serif;
 }
-.navItem:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
-.navItemActive { background: #2d6a31 !important; color: #fff !important; }
+.navItem:hover {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.85);
+}
+.navActive {
+  background: rgba(74,163,84,0.25) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+.navActive svg { opacity: 1; }
 
-.navDivider { height: 1px; background: rgba(255,255,255,0.07); margin: 8px 0; }
-
-.sidebarBottom {
-  padding: 16px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+.navBottom {
+  padding: 8px 12px 20px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 8px;
 }
 
-.sidebarBottomCard {
-  background: rgba(74,163,84,0.1); border: 1px solid rgba(74,163,84,0.18);
-  border-radius: 10px; padding: 14px;
+/* ── Main area ── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  background: #f4f6f4;
 }
 
-.sidebarSlogan {
-  font-size: 13px; font-weight: 700; color: #6fcf7a;
-  line-height: 1.3; margin-bottom: 4px;
-}
-
-.sidebarSub { font-size: 11px; color: rgba(255,255,255,0.28); font-family: 'DM Mono', monospace; }
-
-/* ── Main ── */
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-
+/* Topbar */
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 24px; height: 56px;
-  background: #fff; border-bottom: 1px solid #e8ede8; flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  height: 58px;
+  background: #fff;
+  border-bottom: 1px solid #e6ebe6;
+  flex-shrink: 0;
 }
 
-.topbarTagline { font-size: 13px; color: #9aaa9a; display: flex; align-items: center; gap: 8px; }
-.topbarDot { width: 6px; height: 6px; background: #e0e8e0; border-radius: 50%; flex-shrink: 0; }
-.topbarTaglineText { font-size: 13px; color: #9aaa9a; }
+.pageTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a2e1a;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
 
-.topbarActions { display: flex; align-items: center; gap: 10px; }
+.topbarRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
 
-.topbarIconBtn {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: #f5f7f5; border: 1px solid #e0e8e0;
+.bellBtn {
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: #f4f6f4;
+  border: 1px solid #e0e8e0;
   display: flex; align-items: center; justify-content: center;
-  color: #5a7a5a; cursor: pointer; transition: all 0.15s;
+  cursor: pointer;
+  transition: background 0.15s;
 }
-.topbarIconBtn:hover { background: #e8f0e8; }
+.bellBtn:hover { background: #e8f0e8; }
 
-.avatarBtn {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: #2d6a31; color: #fff; font-size: 13px; font-weight: 600;
+.bellBadge {
+  position: absolute;
+  top: 7px; right: 7px;
+  width: 7px; height: 7px;
+  background: #e05c5c;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+}
+
+.avatarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2d7a31, #4caf50);
   display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 
+.avatarName {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #2a3a2a;
+}
+
+/* Scrollable page content */
 .content {
-  flex: 1; overflow-y: auto; padding: 24px;
-  display: flex; flex-direction: column; gap: 20px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 @media (max-width: 768px) {
   .shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; min-width: unset; flex-direction: row; }
-  .navSection { flex-direction: row; padding: 8px; overflow-x: auto; }
-  .sidebarBottom { display: none; }
+  .sidebar { width: 100%; height: 60px; min-width: unset; }
+  .sidebarInner { flex-direction: row; padding: 0 12px; }
+  .logo { border-bottom: none; margin: 0; padding: 12px 8px; }
+  .nav { flex-direction: row; padding: 0; overflow-x: auto; }
+  .navBottom { display: none; }
+  .navItem { white-space: nowrap; }
+  .content { padding: 16px; }
 }
