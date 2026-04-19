@@ -187,7 +187,7 @@ export default function Dashboard() {
                     onChange={handleFileChange}
                   />
                   <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => router.push("/upload")}
                     style={{ display:"flex", alignItems:"center", gap:7, padding:"11px 18px", background:"transparent", border:"1px solid #c8d8c8", borderRadius:9, color:"#3a6a3a", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}
                   >
                     <Icon n="upload" s={14} c="#3a6a3a" /> Upload DNA File

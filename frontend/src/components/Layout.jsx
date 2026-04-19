@@ -11,6 +11,7 @@ const DOCTOR_NAV = [
   { path: "/ar",       label: "AR Viewer",         icon: "ar"      },
   { path: "/insights", label: "Therapy Insights",  icon: "bulb"    },
   { path: "/history",  label: "History",           icon: "history" },
+  { path: "/upload",   label: "Upload DNA",        icon: "dna"     },
 ];
 
 const PATIENT_NAV = [
