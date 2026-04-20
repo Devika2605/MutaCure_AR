@@ -46,14 +46,16 @@ os.makedirs(settings.pdb_output_dir, exist_ok=True)
 app.mount("/files", StaticFiles(directory=settings.pdb_output_dir), name="files")
 
 # ---------------------------------------------------------------------------
-# Routers
+# Routers — all after app is created
 # ---------------------------------------------------------------------------
 
 from protein.routes import router as protein_router
 from mutation.routes import router as mutation_router
+from routers.auth import router as auth_router
 
 app.include_router(protein_router)
 app.include_router(mutation_router, prefix="/api")
+app.include_router(auth_router)
 
 # ---------------------------------------------------------------------------
 # Root

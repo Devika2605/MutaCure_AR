@@ -3,7 +3,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useRef, useState } from "react";
 import Layout from "../components/Layout";
-import { useUser } from "../context/UserContext";
+import { useAuth } from "../context/AuthContext";
 
 const Icon = ({ n, s = 16, c = "currentColor" }) => {
   const st = { width: s, height: s, flexShrink: 0 };
@@ -54,60 +54,55 @@ function HeroIllustration() {
 }
 
 const RECENT_RIGHT = [
-  { gene:"TCF7L2", disease:"Type 2 Diabetes",    time:"2 hours ago",  risk:0.87, target:"PPARG",  variant:"rs7903146" },
-  { gene:"BRCA1",  disease:"Breast Cancer",       time:"1 day ago",    risk:0.79, target:"BRCA1",  variant:"rs80357906" },
-  { gene:"EGFR",   disease:"Lung Cancer",         time:"3 days ago",   risk:0.74, target:"EGFR",   variant:"rs121434568" },
+  { gene:"TCF7L2", disease:"Type 2 Diabetes", time:"2 hours ago", risk:0.87, target:"PPARG",  variant:"rs7903146"   },
+  { gene:"BRCA1",  disease:"Breast Cancer",   time:"1 day ago",   risk:0.79, target:"BRCA1",  variant:"rs80357906"  },
+  { gene:"EGFR",   disease:"Lung Cancer",     time:"3 days ago",  risk:0.74, target:"EGFR",   variant:"rs121434568" },
 ];
 
 const ACTIVITY = [
-  { time:"14:27", text:"Protein model generated for", bold:"TCF7L2" },
-  { time:"14:15", text:"ESMFold structure prediction completed", bold:"" },
-  { time:"14:08", text:"New request received for", bold:"BRCA1 target" },
-  { time:"13:56", text:"Sequence data retrieved: 122 amino-acids.", bold:"" },
+  { time:"14:27", text:"Protein model generated for",           bold:"TCF7L2"      },
+  { time:"14:15", text:"ESMFold structure prediction completed", bold:""            },
+  { time:"14:08", text:"New request received for",              bold:"BRCA1 target" },
+  { time:"13:56", text:"Sequence data retrieved: 122 amino-acids.", bold:""        },
 ];
 
 const BOTTOM_CARDS = [
-  { title:"Recent Analyses",   gene:"TCF7L2", disease:"Type 2 Diabetes", time:"2 hours ago", status:{ label:"Complete", icon:"clock", color:"#5a7a5a" }, fields:[["Gene:","TCF7L2"],["rs7903146 (C-T)",""],["Target: PPARG",""]], score:"0.87", scoreBg:"#e8f5e9", scoreColor:"#2d7a31", tag:"PPARG",   tagBg:"#f0f4f0", risk:0.87, target:"PPARG",  variant:"rs7903146" },
-  { title:"Research Insights", gene:"BRCA1",  disease:"Breast Cancer",   time:"1 day ago",   status:{ label:"High Risk", icon:"warn",  color:"#f0a500" }, fields:[["Gene:","BRCA1"],["rs121434568",""],["Target: BRCA1",""]], score:"0.87", scoreBg:"#2d6a31", scoreColor:"#fff",    tag:"Riscol",  tagBg:"#f0f4f0", risk:0.79, target:"BRCA1",  variant:"rs80357906" },
-  { title:"Active Projects",   gene:"EGFR",   disease:"Lung Cancer",     time:"3 days ago",  status:{ label:"Warning",  icon:"warn",  color:"#f0a500" }, fields:[["Gene:","EGFR"],["rs121434568",""],["Target: EGFR",""]], score:"—",    scoreBg:"#f8f8f8", scoreColor:"#8aaa8a", tag:"Warning", tagBg:"#fff5f0", tagColor:"#e05c5c", risk:0.74, target:"EGFR", variant:"rs121434568" },
+  { title:"Recent Analyses",   gene:"TCF7L2", disease:"Type 2 Diabetes", time:"2 hours ago", status:{ label:"Complete",  icon:"clock", color:"#5a7a5a" }, fields:[["Gene:","TCF7L2"],["rs7903146 (C-T)",""],["Target: PPARG",""]], score:"0.87", scoreBg:"#e8f5e9", scoreColor:"#2d7a31", tag:"PPARG",   tagBg:"#f0f4f0",                  risk:0.87, target:"PPARG",  variant:"rs7903146"   },
+  { title:"Research Insights", gene:"BRCA1",  disease:"Breast Cancer",   time:"1 day ago",   status:{ label:"High Risk", icon:"warn",  color:"#f0a500" }, fields:[["Gene:","BRCA1"],["rs121434568",""],["Target: BRCA1",""]],   score:"0.87", scoreBg:"#2d6a31", scoreColor:"#fff",    tag:"Riscol",  tagBg:"#f0f4f0",                  risk:0.79, target:"BRCA1",  variant:"rs80357906"  },
+  { title:"Active Projects",   gene:"EGFR",   disease:"Lung Cancer",     time:"3 days ago",  status:{ label:"Warning",   icon:"warn",  color:"#f0a500" }, fields:[["Gene:","EGFR"],["rs121434568",""],["Target: EGFR",""]],     score:"—",    scoreBg:"#f8f8f8", scoreColor:"#8aaa8a", tag:"Warning", tagBg:"#fff5f0", tagColor:"#e05c5c", risk:0.74, target:"EGFR",   variant:"rs121434568" },
 ];
 
 const RESOURCES = [
-  { label:"Protein Database", icon:"db",   path:"/protein" },
-  { label:"AR Viewer Guide",  icon:"cube", path:"/ar" },
+  { label:"Protein Database", icon:"db",   path:"/protein"  },
+  { label:"AR Viewer Guide",  icon:"cube", path:"/ar"       },
   { label:"Mutation Report",  icon:"edit", path:"/mutation" },
 ];
 
-// Pipeline steps with real meaning
 const PIPELINE_STEPS = [
-  { label:"Input",     key:"input" },
-  { label:"Mutation",  key:"mutation" },
-  { label:"Pathway",   key:"pathway" },
-  { label:"Protein",   key:"protein" },
+  { label:"Input",     key:"input"     },
+  { label:"Mutation",  key:"mutation"  },
+  { label:"Pathway",   key:"pathway"   },
+  { label:"Protein",   key:"protein"   },
   { label:"Structure", key:"structure" },
-  { label:"3D + AR",   key:"ar" },
+  { label:"3D + AR",   key:"ar"        },
 ];
 
 export default function Dashboard() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, loading } = useAuth();
   const fileInputRef = useRef(null);
 
-  // File upload state
-  const [uploadedFile, setUploadedFile]   = useState(null);
-  const [uploadError,  setUploadError]    = useState(null);
-  const [uploading,    setUploading]      = useState(false);
-
-  // Pipeline progress — simulated based on last analysis
-  // In a real app this would come from global state / localStorage
+  const [uploadedFile,   setUploadedFile]   = useState(null);
+  const [uploadError,    setUploadError]    = useState(null);
   const [pipelineActive, setPipelineActive] = useState(false);
-  const [pipelineStep,   setPipelineStep]   = useState(-1); // -1 = idle, 0-5 = step index
+  const [pipelineStep,   setPipelineStep]   = useState(-1);
+
+  // Wait for auth before rendering
+  if (loading || !user) return null;
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Accept .fasta, .fa, .txt, .vcf, .csv
     const allowed = [".fasta", ".fa", ".txt", ".vcf", ".csv"];
     const ext = "." + file.name.split(".").pop().toLowerCase();
     if (!allowed.includes(ext)) {
@@ -115,14 +110,12 @@ export default function Dashboard() {
       setUploadedFile(null);
       return;
     }
-
     setUploadError(null);
     setUploadedFile(file);
   };
 
   const handleUploadAndAnalyse = () => {
     if (!uploadedFile) return;
-    // Simulate pipeline start, then navigate to mutation page with file flag
     setPipelineActive(true);
     let step = 0;
     const interval = setInterval(() => {
@@ -155,14 +148,14 @@ export default function Dashboard() {
       <Layout pageTitle="Home">
         <div style={{ display:"flex", gap:24, alignItems:"flex-start" }}>
 
-          {/* ── Left+Center main column ── */}
+          {/* ── Left+Center ── */}
           <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:20 }}>
 
-            {/* Hero card */}
+            {/* Hero */}
             <div style={{ background:"#fff", borderRadius:16, border:"1px solid #e6ebe6", overflow:"hidden", display:"grid", gridTemplateColumns:"1fr 480px", minHeight:220 }}>
               <div style={{ padding:"32px 36px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
                 <p style={{ fontSize:14, color:"#5a7a5a", margin:"0 0 4px", fontFamily:"'DM Sans',sans-serif" }}>
-                  Welcome Back, <strong style={{ color:"#1a2e1a" }}>{user.name}</strong>
+                  Welcome Back, <strong style={{ color:"#1a2e1a" }}>{user?.name || "Doctor"}</strong>
                 </p>
                 <h2 style={{ fontSize:36, fontWeight:800, color:"#1a2e1a", margin:"0 0 10px", letterSpacing:"-0.025em", lineHeight:1.05, fontFamily:"'DM Sans',sans-serif" }}>
                   MutaCure AR
@@ -171,30 +164,17 @@ export default function Dashboard() {
                   Accelerate Your Research with<br/>Mutation to Therapy Tools
                 </p>
                 <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                  <button
-                    onClick={() => router.push("/mutation")}
-                    style={{ display:"flex", alignItems:"center", gap:7, padding:"11px 20px", background:"#2d6a31", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}
-                  >
+                  <button onClick={() => router.push("/mutation")}
+                    style={{ display:"flex", alignItems:"center", gap:7, padding:"11px 20px", background:"#2d6a31", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
                     <Icon n="plus" s={15} c="#fff" /> New Analysis
                   </button>
-
-                  {/* Hidden real file input */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".fasta,.fa,.txt,.vcf,.csv"
-                    style={{ display:"none" }}
-                    onChange={handleFileChange}
-                  />
-                  <button
-                    onClick={() => router.push("/upload")}
-                    style={{ display:"flex", alignItems:"center", gap:7, padding:"11px 18px", background:"transparent", border:"1px solid #c8d8c8", borderRadius:9, color:"#3a6a3a", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}
-                  >
+                  <input ref={fileInputRef} type="file" accept=".fasta,.fa,.txt,.vcf,.csv" style={{ display:"none" }} onChange={handleFileChange} />
+                  <button onClick={() => fileInputRef.current?.click()}
+                    style={{ display:"flex", alignItems:"center", gap:7, padding:"11px 18px", background:"transparent", border:"1px solid #c8d8c8", borderRadius:9, color:"#3a6a3a", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
                     <Icon n="upload" s={14} c="#3a6a3a" /> Upload DNA File
                   </button>
                 </div>
 
-                {/* File selected state */}
                 {uploadedFile && (
                   <div style={{ marginTop:14, padding:"10px 14px", background:"#f0faf0", border:"1px solid #c8e6c9", borderRadius:9, display:"flex", alignItems:"center", gap:10 }}>
                     <Icon n="file" s={14} c="#4caf50" />
@@ -216,36 +196,24 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Pipeline progress — shown when file is being processed */}
+            {/* Pipeline progress */}
             {pipelineActive && (
               <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", padding:"18px 22px" }}>
                 <div style={{ fontSize:12, fontWeight:600, color:"#1a2e1a", marginBottom:14, fontFamily:"'DM Sans',sans-serif" }}>Processing Pipeline</div>
-                <div style={{ display:"flex", alignItems:"center", gap:0 }}>
+                <div style={{ display:"flex", alignItems:"center" }}>
                   {PIPELINE_STEPS.map((step, i) => {
-                    const done    = i < pipelineStep;
-                    const active  = i === pipelineStep;
-                    const pending = i > pipelineStep;
+                    const done   = i < pipelineStep;
+                    const active = i === pipelineStep;
                     return (
                       <div key={step.key} style={{ display:"flex", alignItems:"center", flex: i < PIPELINE_STEPS.length - 1 ? 1 : 0 }}>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
-                          <div style={{
-                            width:32, height:32, borderRadius:"50%",
-                            background: done ? "#4caf50" : active ? "#f0faf0" : "#f8faf8",
-                            border: `2px solid ${done ? "#4caf50" : active ? "#4caf50" : "#e0e8e0"}`,
-                            display:"flex", alignItems:"center", justifyContent:"center",
-                            transition:"all 0.3s",
-                          }}>
-                            {done
-                              ? <Icon n="check" s={14} c="#fff" />
-                              : <span style={{ fontSize:11, fontFamily:"'DM Mono',monospace", color: active ? "#2d7a31" : "#9aaa9a", fontWeight:600 }}>{i+1}</span>
-                            }
+                          <div style={{ width:32, height:32, borderRadius:"50%", background:done?"#4caf50":active?"#f0faf0":"#f8faf8", border:`2px solid ${done?"#4caf50":active?"#4caf50":"#e0e8e0"}`, display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.3s" }}>
+                            {done ? <Icon n="check" s={14} c="#fff" /> : <span style={{ fontSize:11, fontFamily:"'DM Mono',monospace", color:active?"#2d7a31":"#9aaa9a", fontWeight:600 }}>{i+1}</span>}
                           </div>
-                          <span style={{ fontSize:10, fontFamily:"'DM Sans',sans-serif", color: done ? "#2d7a31" : active ? "#1a2e1a" : "#9aaa9a", fontWeight: active ? 600 : 400, whiteSpace:"nowrap" }}>
-                            {step.label}
-                          </span>
+                          <span style={{ fontSize:10, fontFamily:"'DM Sans',sans-serif", color:done?"#2d7a31":active?"#1a2e1a":"#9aaa9a", fontWeight:active?600:400, whiteSpace:"nowrap" }}>{step.label}</span>
                         </div>
                         {i < PIPELINE_STEPS.length - 1 && (
-                          <div style={{ flex:1, height:2, background: done ? "#4caf50" : "#e0e8e0", margin:"0 4px", marginBottom:18, transition:"background 0.3s" }} />
+                          <div style={{ flex:1, height:2, background:done?"#4caf50":"#e0e8e0", margin:"0 4px", marginBottom:18, transition:"background 0.3s" }} />
                         )}
                       </div>
                     );
@@ -257,23 +225,19 @@ export default function Dashboard() {
             {/* Recent Analyses header */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <h3 style={{ fontSize:16, fontWeight:700, color:"#1a2e1a", margin:0, fontFamily:"'DM Sans',sans-serif" }}>Recent Analyses</h3>
-              <button
-                onClick={() => router.push("/history")}
-                style={{ display:"flex", alignItems:"center", gap:4, background:"none", border:"none", color:"#4caf50", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}
-              >
+              <button onClick={() => router.push("/history")}
+                style={{ display:"flex", alignItems:"center", gap:4, background:"none", border:"none", color:"#4caf50", fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
                 View All <Icon n="chevron" s={14} c="#4caf50" />
               </button>
             </div>
 
-            {/* Two big summary cards */}
+            {/* Two big cards */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-              <div
-                onClick={() => router.push("/protein?target=PPARG&gene=TCF7L2&variant=rs7903146&risk=0.87")}
-                style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", overflow:"hidden", display:"grid", gridTemplateColumns:"1fr 1fr", cursor:"pointer", transition:"border-color 0.15s", }}
+              <div onClick={() => router.push("/protein?target=PPARG&gene=TCF7L2&variant=rs7903146&risk=0.87")}
+                style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", overflow:"hidden", display:"grid", gridTemplateColumns:"1fr 1fr", cursor:"pointer", transition:"border-color 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.borderColor="#4caf50"}
-                onMouseLeave={e => e.currentTarget.style.borderColor="#e6ebe6"}
-              >
-                <div style={{ padding:"20px 20px" }}>
+                onMouseLeave={e => e.currentTarget.style.borderColor="#e6ebe6"}>
+                <div style={{ padding:"20px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                     <div style={{ width:28, height:28, borderRadius:8, background:"#f0faf0", border:"1px solid #c8e6c9", display:"flex", alignItems:"center", justifyContent:"center" }}>
                       <Icon n="gene" s={14} c="#4caf50" />
@@ -284,7 +248,7 @@ export default function Dashboard() {
                   <div style={{ fontSize:14, fontWeight:600, color:"#1a2e1a", marginBottom:8, fontFamily:"'DM Sans',sans-serif" }}>Type 2 Diabetes</div>
                   <div style={{ fontSize:12, color:"#8aaa8a", fontFamily:"'DM Sans',sans-serif" }}>4 New This Week</div>
                 </div>
-                <div style={{ background:"linear-gradient(135deg,#f0faf0,#e8f5e9)", position:"relative", overflow:"hidden", minHeight:140 }}>
+                <div style={{ background:"linear-gradient(135deg,#f0faf0,#e8f5e9)", overflow:"hidden", minHeight:140 }}>
                   <svg viewBox="0 0 200 140" style={{ width:"100%", height:"100%" }}>
                     {[90,105,78,115,85,100,70,110,95].map((cy,i) => (
                       <circle key={i} cx={60+i*10} cy={cy} r={14-i*0.5} fill="#4caf50" opacity={0.08+i*0.02}/>
@@ -294,13 +258,11 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div
-                onClick={() => router.push("/protein")}
+              <div onClick={() => router.push("/protein")}
                 style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", overflow:"hidden", display:"grid", gridTemplateColumns:"1fr 1fr", cursor:"pointer", transition:"border-color 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.borderColor="#4caf50"}
-                onMouseLeave={e => e.currentTarget.style.borderColor="#e6ebe6"}
-              >
-                <div style={{ padding:"20px 20px" }}>
+                onMouseLeave={e => e.currentTarget.style.borderColor="#e6ebe6"}>
+                <div style={{ padding:"20px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                     <div style={{ width:28, height:28, borderRadius:8, background:"#f0faf0", border:"1px solid #c8e6c9", display:"flex", alignItems:"center", justifyContent:"center" }}>
                       <Icon n="models" s={14} c="#4caf50" />
@@ -308,9 +270,9 @@ export default function Dashboard() {
                     <span style={{ fontSize:11, color:"#8aaa8a", fontFamily:"'DM Mono',monospace" }}>Generated Models</span>
                   </div>
                   <div style={{ fontSize:32, fontWeight:800, color:"#1a2e1a", marginBottom:4, fontFamily:"'DM Sans',sans-serif" }}>12</div>
-                  <div style={{ fontSize:12, color:"#8aaa8a", marginBottom:4, fontFamily:"'DM Sans',sans-serif" }}>2 New This Week</div>
+                  <div style={{ fontSize:12, color:"#8aaa8a", fontFamily:"'DM Sans',sans-serif" }}>2 New This Week</div>
                 </div>
-                <div style={{ background:"linear-gradient(135deg,#f0faf0,#e8f5e9)", position:"relative", overflow:"hidden", minHeight:140 }}>
+                <div style={{ background:"linear-gradient(135deg,#f0faf0,#e8f5e9)", overflow:"hidden", minHeight:140 }}>
                   <svg viewBox="0 0 200 140" style={{ width:"100%", height:"100%" }}>
                     {[80,95,70,108,78,100,65,112,88,95].map((cy,i) => (
                       <circle key={i} cx={40+i*14} cy={cy} r={16-i*0.3} fill="#4caf50" opacity={0.07+i*0.025}/>
@@ -320,15 +282,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Bottom 3-col cards — clickable */}
+            {/* Bottom 3-col cards */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
               {BOTTOM_CARDS.map((card, ci) => (
-                <div key={ci}
-                  onClick={() => navToAnalysis(card)}
+                <div key={ci} onClick={() => navToAnalysis(card)}
                   style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", padding:18, cursor:"pointer", transition:"border-color 0.15s, box-shadow 0.15s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor="#4caf50"; e.currentTarget.style.boxShadow="0 2px 12px rgba(74,163,84,0.1)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor="#e6ebe6"; e.currentTarget.style.boxShadow="none"; }}
-                >
+                  onMouseLeave={e => { e.currentTarget.style.borderColor="#e6ebe6"; e.currentTarget.style.boxShadow="none"; }}>
                   <div style={{ fontSize:13, fontWeight:700, color:"#1a2e1a", marginBottom:14, fontFamily:"'DM Sans',sans-serif" }}>{card.title}</div>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                     <div>
@@ -338,9 +298,7 @@ export default function Dashboard() {
                     <span style={{ fontSize:11, color:"#aabcaa", fontFamily:"'DM Mono',monospace" }}>{card.time}</span>
                   </div>
                   <div style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 10px", background:"#f8faf8", borderRadius:8, marginBottom:12 }}>
-                    {card.status.icon === "warn"
-                      ? <Icon n="warn" s={13} />
-                      : <Icon n="clock" s={13} c={card.status.color} />}
+                    {card.status.icon === "warn" ? <Icon n="warn" s={13} /> : <Icon n="clock" s={13} c={card.status.color} />}
                     <span style={{ fontSize:11, color:card.status.color, fontFamily:"'DM Mono',monospace" }}>{card.status.label}</span>
                   </div>
                   <div style={{ fontSize:11, color:"#5a7a5a", fontFamily:"'DM Mono',monospace", lineHeight:1.8, marginBottom:10 }}>
@@ -348,16 +306,13 @@ export default function Dashboard() {
                   </div>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
                     {card.tag && (
-                      <span style={{ padding:"3px 9px", background:card.tagBg||"#f0f4f0", borderRadius:6, fontSize:11, color:card.tagColor||"#5a7a5a", fontFamily:"'DM Mono',monospace", fontWeight:500 }}>
-                        {card.tag}
-                      </span>
+                      <span style={{ padding:"3px 9px", background:card.tagBg||"#f0f4f0", borderRadius:6, fontSize:11, color:card.tagColor||"#5a7a5a", fontFamily:"'DM Mono',monospace", fontWeight:500 }}>{card.tag}</span>
                     )}
                     <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
                       <span style={{ fontSize:9, color:"#9aaa9a", fontFamily:"'DM Mono',monospace" }}>Score:</span>
                       {card.score !== "—"
                         ? <span style={{ padding:"4px 12px", background:card.scoreBg, color:card.scoreColor, borderRadius:8, fontSize:13, fontWeight:700, fontFamily:"'DM Mono',monospace" }}>{card.score}</span>
-                        : <span style={{ fontSize:13, color:"#9aaa9a", fontFamily:"'DM Mono',monospace" }}>—</span>
-                      }
+                        : <span style={{ fontSize:13, color:"#9aaa9a", fontFamily:"'DM Mono',monospace" }}>—</span>}
                     </div>
                   </div>
                 </div>
@@ -369,16 +324,14 @@ export default function Dashboard() {
           {/* ── Right panel ── */}
           <div style={{ width:270, flexShrink:0, display:"flex", flexDirection:"column", gap:16 }}>
 
-            {/* Recent Analyses list */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", padding:18 }}>
               <div style={{ fontSize:14, fontWeight:700, color:"#1a2e1a", marginBottom:16, fontFamily:"'DM Sans',sans-serif" }}>Recent Analyses</div>
               {RECENT_RIGHT.map((r,i) => (
                 <div key={i}
                   onClick={() => router.push(`/protein?target=${r.target}&gene=${r.gene}&variant=${r.variant}&risk=${r.risk}`)}
-                  style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingBottom:12, marginBottom:12, borderBottom: i < RECENT_RIGHT.length-1 ? "1px solid #f0f5f0" : "none", cursor:"pointer", borderRadius:6, padding:"8px 6px" }}
+                  style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12, paddingBottom:12, borderBottom:i<RECENT_RIGHT.length-1?"1px solid #f0f5f0":"none", cursor:"pointer", borderRadius:6, padding:"8px 6px" }}
                   onMouseEnter={e => e.currentTarget.style.background="#f8faf8"}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}
-                >
+                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
                   <div>
                     <div style={{ fontSize:13, fontWeight:700, color:"#1a2e1a", marginBottom:2, fontFamily:"'DM Sans',sans-serif" }}>{r.gene}</div>
                     <div style={{ fontSize:11, color:"#8aaa8a", fontFamily:"'DM Sans',sans-serif" }}>{r.disease}</div>
@@ -388,7 +341,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Activity Log */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", padding:18 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
                 <div style={{ fontSize:14, fontWeight:700, color:"#1a2e1a", fontFamily:"'DM Sans',sans-serif" }}>Activity Log</div>
@@ -404,27 +356,20 @@ export default function Dashboard() {
                   {a.bold && <strong style={{ color:"#1a2e1a" }}>{a.bold}</strong>}
                 </div>
               ))}
-              <button
-                onClick={() => router.push("/history")}
-                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", padding:"9px 14px", background:"#f5faf5", border:"1px solid #e0ede0", borderRadius:9, color:"#2d6a31", fontSize:12.5, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", marginTop:4 }}
-              >
+              <button onClick={() => router.push("/history")}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", padding:"9px 14px", background:"#f5faf5", border:"1px solid #e0ede0", borderRadius:9, color:"#2d6a31", fontSize:12.5, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", marginTop:4 }}>
                 View Details <Icon n="arrow" s={13} c="#2d6a31" />
               </button>
             </div>
 
-            {/* Resources & Tools */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e6ebe6", padding:18 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-                <div style={{ fontSize:14, fontWeight:700, color:"#1a2e1a", fontFamily:"'DM Sans',sans-serif" }}>Resources & Tools</div>
-              </div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#1a2e1a", marginBottom:14, fontFamily:"'DM Sans',sans-serif" }}>Resources & Tools</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 {RESOURCES.map((r,i) => (
-                  <button key={i}
-                    onClick={() => router.push(r.path)}
+                  <button key={i} onClick={() => router.push(r.path)}
                     style={{ padding:"12px 10px", background:"#f8faf8", border:"1px solid #e6ebe6", borderRadius:10, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"flex-start", gap:6, textAlign:"left", transition:"border-color 0.15s" }}
                     onMouseEnter={e => e.currentTarget.style.borderColor="#4caf50"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor="#e6ebe6"}
-                  >
+                    onMouseLeave={e => e.currentTarget.style.borderColor="#e6ebe6"}>
                     <div style={{ width:28, height:28, borderRadius:7, background:"#e8f5e8", display:"flex", alignItems:"center", justifyContent:"center" }}>
                       <Icon n={r.icon} s={14} c="#4caf50" />
                     </div>

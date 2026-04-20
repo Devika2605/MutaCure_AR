@@ -1,10 +1,9 @@
-// pages/_app.jsx
-import { UserProvider } from "../context/UserContext";
+import { AuthProvider } from "../context/AuthContext";
 
 export default function App({ Component, pageProps }) {
   return (
-    <UserProvider>
+    <AuthProvider>
       <Component {...pageProps} />
-    </UserProvider>
+    </AuthProvider>
   );
 }
